@@ -5339,8 +5339,8 @@
 		if (resize.d !== d) {
 			resize.d = d;
 			var body = $('body');
-			body.rclass('jc-lg jc-md jc-sm jc-xs');
-			body.aclass('jc-' + d);
+			body.rclass('ui-lg ui-md ui-sm ui-xs');
+			body.aclass('ui-' + d);
 		}
 
 		T.ready && T.emit('resize2');
