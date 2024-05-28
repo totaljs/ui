@@ -1,4 +1,4 @@
-ECHO "[COMPILING]"
+echo "Minifying ..."
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd $DIR
 uglifyjs library.js --config-file minify.json -o library.min.js
