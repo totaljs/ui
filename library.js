@@ -1,5 +1,4 @@
-// Total.js UI Library
-// jComponent v20
+// Total.js UI Library (jComponent v20)
 // DEV
 
 (function(W) {
@@ -93,18 +92,19 @@
 		} catch (e) {}
 	};
 
+	T.is20 = true;
 	T.ready = false;
 	T.scope = W;
-	T.version = 1;
+	T.version = 20;
 	T.components = [];
 	T.binders = [];
 	T.scrollbars = [];
 	T.watchers = [];
 	T.events = {};
 	T.plugins = W.PLUGINS;
-	T.env = {};
 	T.data = {};
 	T.caller = null;
+	T.def = DEF;
 
 	T.cache = {
 		timeouts: {},
@@ -124,7 +124,7 @@
 		lazy: {},
 		plugins: {},
 		extensions: {},
-		configs: {},
+		configs: [],
 		components: {}
 	};
 
@@ -315,7 +315,7 @@
 		}
 
 		path = parsepath(path);
-		T.watchers.push({ scope: T.scope, path: path, callback: callback });
+		T.watchers.push({ scope: T.scope, path: path, fn: callback });
 		autoinit && setTimeout(() => callback(path.get(T.scope), path.path, path.flags), 1);
 	};
 
@@ -332,7 +332,7 @@
 		let rem = [];
 		for (let m of T.watchers) {
 			if (m.path.path === path.path) {
-				if (!callback || m.callback == callback)
+				if (!callback || m.fn == callback)
 					rem.push(m);
 			}
 		}
@@ -596,7 +596,7 @@
 			var arr = [];
 			for (let m of T.components) {
 				if (m.ready && m.scope === scope) {
-					if (path.includes(m.path)) {
+					if (m.path && path.includes(m.path)) {
 						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.invalid && !m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
 							continue;
 						arr.push(m);
@@ -633,7 +633,7 @@
 
 						if (onlyflags)
 							m.$validate();
-						else
+						else if (m.path)
 							m.$setter(m.get(), path.path, path.flags);
 					}
 
@@ -954,7 +954,7 @@
 			t.ready = true;
 			t.instance.scope = W;
 			t.instance.name = t.name || t.path;
-			t.instance.path = new T.Path(t.path);
+			t.instance.path = t.path && t.path !== 'null' ? new T.Path(t.path) : null;
 			t.instance.proxy = t;
 			t.instance.element = t.element;
 			t.instance.dom = t.element[0];
@@ -978,7 +978,6 @@
 					reference = '$totalplugin';
 					break;
 				case 'component':
-					t.element.aclass(cls);
 					t.instance.cls = cls;
 					t.instance.def = t.element.attr('default');
 
@@ -1794,9 +1793,16 @@
 					t.init && t.init();
 				}
 
+				for (let m of T.db.configs) {
+					if (m.check(t)) {
+						for (let key in m.config)
+							t.config[key] = m.config[key];
+					}
+				}
+
 				t.make && t.make();
 				t.reconfigure(t.config, true);
-				t.$setter(t.get(), t.path.path, { init: 1 });
+				t.path && t.$setter(t.get(), t.path.path, { init: 1 });
 				t.$datasource && t.$datasource.refresh && t.$datasource.refresh();
 			} finally {
 				if (t.proxy.callback) {
@@ -1898,7 +1904,11 @@
 			The method assigns a value to the model and calls `setter`.
 		*/
 		PROTO.set = function(value, flags) {
+
 			var t = this;
+
+			if (!t.path)
+				return;
 
 			// Backward compatibility
 			if (typeof(flags) === 'number') {
@@ -1921,11 +1931,8 @@
 				}
 			}
 
-			if (t.path.path) {
-				t.path.set(t.scope, value);
-				t.path.notify(t.scope, flags);
-			} else
-				WARN(ERR.format('The component "{0}" does not have a defined path'.format(t.name), t));
+			t.path.set(t.scope, value);
+			t.path.notify(t.scope, flags);
 		};
 
 		/*
@@ -1934,8 +1941,11 @@
 			The method assigns a value to the model without calling the setter.
 		*/
 		PROTO.rewrite = function(value, flags) {
-			this.skip = true;
-			this.set(value, flags);
+			let t = this;
+			if (t.path) {
+				t.skip = true;
+				t.set(value, flags);
+			}
 		};
 
 		PROTO.upd = PROTO.update = function(flags) {
@@ -1944,7 +1954,8 @@
 			if (typeof(flags) === 'boolean')
 				flags = null;
 
-			this.path.notify(this.scope, flags);
+			let t = this;
+			t.path && t.path.notify(t.scope, flags);
 		};
 
 		/*
@@ -2645,6 +2656,8 @@
 				t.proxy.callback();
 				t.proxy.callback = null;
 			}
+
+			t.fn(t.path.get(t.scope), t.path, { init: 1 });
 		};
 
 		PROTO.replaceplugin = function(val) {
@@ -2856,7 +2869,7 @@
 			var self = this;
 			return self.replace(/(\[.*?\])/gi, function(val) {
 				var key = val.substring(1, val.length - 1);
-				return (key.charAt(0) === '.' ? T.get(W, key.substring(1)) : T.env[key]) || val;
+				return (key.charAt(0) === '.' ? T.get(W, key.substring(1)) : DEF.env[key]) || val;
 			});
 		};
 
@@ -2879,6 +2892,9 @@
 				let l = kv.length;
 
 				let k = kv[0].trim().env();
+				if (!k)
+					continue;
+
 				let v = l === 2 ? kv[1].trim().replace(/\0/g, ':').env() : null;
 
 				if (noconvert !== true) {
@@ -3722,6 +3738,9 @@
 		*/
 		W.EMIT = T.emit;
 
+		W.WATCH = T.watch;
+		W.UNWATCH = T.unwatch;
+
 		/*
 			@Path: Globals
 			@Method: ATTRD(el, attrd); #el {jQuery/Element}; #attrd {String} attribute name (default: `id`); #return {String};
@@ -3777,10 +3796,10 @@
 
 		/*
 			@Path: Globals
-			@Method: COMPONENT(name, [config], callback, [dependencies]); #path {String}; #[config] {Object}; #callback {Function(self, config, element, cls)}; #[dependencies] {String};
+			@Method: COMPONENT(name, [config], callback, [dependencies]); #path {String}; #[config] {Object}; #callback {Function(self, config, cls, element)}; #[dependencies] {String};
 			The method registers a new component declaration.
 		*/
-		W.COMPONENT = function(name, config, callback, css, dependencies) {
+		W.COMPONENT = function(name, config, callback, dependencies, css) {
 
 			if (typeof(config) === 'function') {
 				dependencies = callback;
@@ -3938,7 +3957,7 @@
 				if (name) {
 					for (var key in name) {
 						DEF.env[key] = name[key];
-						T.events.env && T.emit('env', key, name[key]);
+						T.emit('env', key, name[key]);
 					}
 				}
 				return name;
@@ -3947,6 +3966,7 @@
 			if (value !== undefined) {
 				T.events.env && T.emit('env', name, value);
 				DEF.env[name] = value;
+				// T.notify(T.scope, 'DEF.env.' + name);
 				return value;
 			}
 
@@ -4298,7 +4318,7 @@
 			if (type && type.indexOf('/json') !== -1)
 				opt.response = PARSE(opt.response);
 
-			T.events.response && F.emit('response', opt);
+			T.emit('response', opt);
 
 			// Processed by another way
 			if (opt.cancel)
@@ -4402,7 +4422,7 @@
 
 			opt.data = data;
 
-			T.events.request && F.emit('request', opt);
+			T.emit('request', opt);
 
 			if (opt.cancel)
 				return;
@@ -4624,7 +4644,7 @@
 				scr.async = false;
 				scr.onload = function() {
 					done();
-					T.events.import && T.emit('import', url, $(scr));
+					T.emit('import', url, $(scr));
 				};
 				scr.src = url;
 				d.getElementsByTagName('head')[0].appendChild(scr);
@@ -4638,7 +4658,7 @@
 				link.href = url;
 				link.onload = function() {
 					setTimeout(done, 2);
-					T.events.import && T.emit('import', url, $(link));
+					T.emit('import', url, $(link));
 				};
 				d.getElementsByTagName('head')[0].appendChild(link);
 				return;
@@ -4671,7 +4691,7 @@
 
 					setTimeout(function() {
 						done();
-						T.events.import && T.emit('import', url, target);
+						T.emit('import', url, target);
 					}, 10);
 				});
 			});
@@ -4851,7 +4871,7 @@
 				if (response) {
 					var iserr = response instanceof Error ? true : response instanceof Array && response.length ? response[0].error != null : response.error != null;
 					if (iserr) {
-						T.events.ERROR && T.emit('ERROR', response);
+						T.emit('ERROR', response);
 						error && W.SEEX(error, response);
 						return true;
 					}
@@ -5293,7 +5313,16 @@
 
 		$.fn.EXEC = function(name, a, b, c, d) {
 			var c = name.charAt(0);
-			if (c === '?' || c === '|') {
+
+			if (c === '@') {
+				// component
+				var component = this.component();
+				if (component) {
+					name = name.substring(1);
+					let fn = component[name];
+					fn && fn(component, a, b, c, d);
+				}
+			} else if (c === '?' || c === '|') {
 				var plugin = this.plugin();
 				T.exec(preparepath(plugin, name), a, b, c, d);
 			} else
@@ -5650,7 +5679,7 @@
 			animcache.y = -1;
 			animcache.x = -1;
 			options.onidle && options.onidle(self);
-			T.events.scrollidle && T.emit('scrollidle', area);
+			T.emit('scrollidle', area);
 		};
 
 		handlers.onscroll = function() {
@@ -5777,7 +5806,7 @@
 				if (notemmited) {
 					clearTimeout(resizeid);
 					resizeid = setTimeout(self.resize, 500, true);
-					T.events.scroll && T.emit('scroll', area);
+					T.emit('scroll', area);
 					notemmited = false;
 				}
 
