@@ -51,7 +51,7 @@
 	DEF.pathtmp = 'DEF.tmp.';
 	DEF.headers = { 'X-Requested-With': 'XMLHttpRequest' };
 	// DEF.fallback = 'https://cdn.componentator.com/20/{0}.html';
-	DEF.fallback = 'https://assets.totaljs.com/ui/components/{0}.html';
+	DEF.fallback = 'https://ui.totaljs.com/components/{0}.html';
 	DEF.localstorage = 'totalui';
 	DEF.dictionary = {};
 	DEF.currency = '';
@@ -105,6 +105,7 @@
 	T.data = {};
 	T.caller = null;
 	T.def = DEF;
+	T.autofill = [];
 
 	T.cache = {
 		timeouts: {},
@@ -316,7 +317,7 @@
 
 		path = parsepath(path);
 		T.watchers.push({ scope: T.scope, path: path, fn: callback });
-		autoinit && setTimeout(() => callback(path.get(T.scope), path.path, path.flags), 1);
+		autoinit && setTimeout(() => callback(path.get(T.scope), path.flags, path.path), 1);
 	};
 
 	T.unwatch = function(path, callback) {
@@ -479,8 +480,8 @@
 			} else {
 				let tmp = element.find('ui-component');
 				for (let m of tmp) {
-					if (m.$totalcomponent)
-						arr.push(m.$totalcomponent);
+					if (m.$uicomponent)
+						arr.push(m.$uicomponent);
 				}
 			}
 		}
@@ -571,8 +572,8 @@
 			} else {
 				arr = element.find('ui-component');
 				for (let m of arr) {
-					if (m.$totalcomponent)
-						arr.push(m.$totalcomponent);
+					if (m.$uicomponent)
+						arr.push(m.$uicomponent);
 				}
 			}
 		}
@@ -624,23 +625,21 @@
 				if (m.ready && m.scope === scope) {
 					if (!m.path || path.includes(m.path)) {
 						if (path.flags.reset || path.flags.detault) {
-							m.config.touched = false;
-							m.config.modified = false;
+							m.reconfigure({ touched: 0, modified: 0 });
 						} else if (path.flags.change || path.flags.touch || path.flags.modify || path.flags.modified) {
-							m.config.modified = true;
-							m.config.touched = true;
+							m.reconfigure({ touched: 1, modified: 1 });
 						}
 
 						if (onlyflags)
 							m.$validate();
 						else if (m.path)
-							m.$setter(m.get(), path.path, path.flags);
+							m.$setter(m.get(), path.flags, path.path);
 					}
 
 					if (!onlyflags) {
 						for (let w of m.watchers) {
 							if (w.path.includes(path))
-								w.fn(w.path.get(scope), path.path, path.flags);
+								w.fn(w.path.get(scope), path.flags, path.path);
 						}
 					}
 
@@ -656,7 +655,7 @@
 				if (plugin.ready && plugin.scope === scope) {
 					for (let m of plugin.watchers) {
 						if (!m.path || m.path.includes(path))
-							m.fn(m.path.get(scope), path.path, path.flags);
+							m.fn(m.path.get(scope), path.flags, path.path);
 					}
 				}
 			}
@@ -664,13 +663,13 @@
 			// Global watchers
 			for (let m of T.watchers) {
 				if (m.scope === scope && (!m.path || m.path.includes(path)))
-					m.fn(m.path.get(scope), path.path, path.flags);
+					m.fn(m.path.get(scope), path.flags, path.path);
 			}
 
 			// Binders
 			for (let m of T.binders) {
 				if (m.fn && m.scope === scope && (!m.path || m.path.includes(path)))
-					m.fn(m.path.get(scope), path.path, path.flags);
+					m.fn(m.path.get(scope), path.flags, path.path);
 			}
 		});
 
@@ -873,21 +872,17 @@
 		}
 	}
 
-	function findparent(el, tag) {
+	function findinstance(t, prop) {
 
-		let parent = el.parentNode;
+		if (t[prop])
+			return t[prop];
 
-		if (parent) {
-
-			if (parent.tagName === 'BODY')
-				return;
-
-			if (parent.tagName === tag)
-				return parent;
-
-			return findparent(parent, tag);
+		t = t.parentNode;
+		while (t) {
+			if (t[prop])
+				return t[prop];
+			t = t.parentNode;
 		}
-
 	}
 
 	function parent(sel) {
@@ -959,7 +954,7 @@
 			t.instance.element = t.element;
 			t.instance.dom = t.element[0];
 			t.instance.config = {};
-			t.instance.plugin = t.instance.dom.$totalplugin || (t.parent ? t.parent[0].$totalplugin : null);
+			t.instance.plugin = t.instance.dom.$uiplugin || (t.parent ? t.parent[0].$uiplugin : null);
 
 			for (let key in t.ref.config)
 				t.instance.config[key] = t.ref.config[key];
@@ -975,9 +970,10 @@
 				case 'plugin':
 					T.plugins[t.path] = t.instance;
 					extensions = T.db.extensions['@' + t.path];
-					reference = '$totalplugin';
+					reference = '$uiplugin';
 					break;
 				case 'component':
+					// t.element.aclass(cls);
 					t.instance.cls = cls;
 					t.instance.def = t.element.attr('default');
 
@@ -985,11 +981,11 @@
 						t.instance.def = new Function('return ' + t.instance.def);
 
 					extensions = T.db.extensions[t.instance.name];
-					reference = '$totalcomponent';
+					reference = '$uicomponent';
 					T.components.push(t.instance);
 					break;
 				case 'bind':
-					reference = '$totalbinder';
+					reference = '$uibinder';
 					T.binders.push(t.instance);
 					break;
 			}
@@ -1090,16 +1086,11 @@
 					t.path = DEF.pathcommon.substring(0, DEF.pathcommon.length - 1);
 
 				tmp = T.db.plugins[t.path];
-				t.ref = tmp;
 
 				if (t.path.includes(' ') && t.path.includes('?'))
 					t.path = DEF.pathplugins + GUID(10).replace(/^[0-9]/g, 'x');
 
-				if (!tmp) {
-					WARN(ERR.format('The plugin "{0}" not found'.format(t.path)));
-					return;
-				}
-
+				t.ref = tmp;
 				t.instance = new T.Plugin(t);
 
 			} else if (t.type === 'component' && !t.instance) {
@@ -1155,6 +1146,7 @@
 
 				let parent = findplugin(t.type === 'plugin' ? t.dom.parentNode : t.dom);
 				if (parent) {
+
 					let proxy = parent.$proxyplugin;
 					if (proxy && proxy.ready) {
 						t.parent = proxy.element;
@@ -1164,9 +1156,18 @@
 						setTimeout(t.init, 50, t);
 						return;
 					}
+
 				} else {
 					WARN(ERR.format('The element "{0}" does not have defined parent plugin'.format(t.path)), t.element[0]);
 					return;
+				}
+			}
+
+			if (t.type === 'plugin' && !t.ref) {
+				t.ref = T.db.plugins[t.path];
+				if (!t.ref) {
+					PLUGIN(t.path, NOOP);
+					t.ref = T.db.plugins[t.path];
 				}
 			}
 
@@ -1727,7 +1728,7 @@
 
 			path = t.path.assign(path);
 			t.watchers.push({ path: path, fn: callback });
-			autoinit && setTimeout(() => callback(path.get(t.scope), path.path, path.flags), 1);
+			autoinit && setTimeout(() => callback(path.get(t.scope), path.flags, path.path), 1);
 		};
 
 		// Internal method
@@ -1802,14 +1803,16 @@
 
 				t.make && t.make();
 				t.reconfigure(t.config, true);
-				t.path && t.$setter(t.get(), t.path.path, { init: 1 });
+				t.path && t.$setter(t.get(), { init: 1 }, t.path.path);
 				t.$datasource && t.$datasource.refresh && t.$datasource.refresh();
+
 			} finally {
 				if (t.proxy.callback) {
 					t.proxy.callback();
 					t.proxy.callback = null;
 				}
 				t.$loaded = true;
+				t.$state();
 			}
 		};
 
@@ -1821,15 +1824,19 @@
 			return preparepath(this, path);
 		};
 
+		PROTO.autofill = function(val) {
+			this.$autofill = val == null || value === true;
+		};
+
 		// Backward compatibility
 		PROTO.autobind = function(prepare) {
 
 			var t = this;
 
-			if (t.$binded)
+			if (t.$autobind)
 				return;
 
-			t.$binded = true;
+			t.$autobind = true;
 
 			var selector = 'input,select,textarea';
 			var timeout = null;
@@ -1841,7 +1848,8 @@
 				if (value !== prev) {
 					if (prepare)
 						value = prepare(value);
-					t.rewrite(value);
+					// t.rewrite(value);
+					t.getter(value, false, false);
 				}
 			};
 
@@ -1851,24 +1859,90 @@
 			};
 
 			t.element.on('input', selector, function() {
-				t.config.modified = true;
+
+				if (!t.config.modified || !t.config.touched) {
+					let tmp = {};
+					if (!t.config.modified)
+						tmp.modified = 1;
+					if (!t.config.touched)
+						tmp.touched = 1;
+					t.reconfigure(tmp);
+				}
+
 				var value = $(this).val();
 				prev = value;
 
 				if (prepare)
 					value = prepare(value);
 
-				t.rewrite(value);
+				// arguments true, false - are due to backward functionality
+				t.getter(value, true, false);
+
 			}).on('focusin', selector, function() {
 				prev = $(this).val();
-				t.config.touched = true;
 			}).on('change', selector, function() {
-				t.config.modified = true;
+				if (!t.config.modified)
+					t.reconfigure({ modified: 1 });
 				update();
 			}).on('blur', selector, function() {
-				t.config.touched = true;
+				if (!t.config.touched)
+					t.reconfigure({ touched: 1 });
 				update();
 			});
+		};
+
+		PROTO.getter = function(value, realtime) {
+
+			var t = this;
+
+			if (t.$parser)
+				value = t.$parser(t.path.path, value);
+
+			t.internal.autobound = true;
+
+			if (realtime)
+				t.rewrite(value);
+			else
+				t.set(value);
+		};
+
+		PROTO.setter = function(value, path, flags) {
+			var t = this;
+
+			if (t.$formatter)
+				value = t.$formatter(t.path.path, value);
+
+			if (value == null)
+				value = '';
+
+			var control = t.find('input,textarea,select')[0];
+			if (control) {
+
+				let selectone = 'select-one';
+
+				if (control.type === 'checkbox') {
+					let tmp = value != null ? (value + '').toLowerCase() : '';
+					t.checked = tmp === 'true' || tmp === '1' || tmp === 'on' || tmp === 'yes' || tmp === 'ok';
+				} else
+					$(control).val(value);
+
+				if (flags.init && t.$autofill && control.type !== selectone && control.type !== 'range' && !t.def)
+					T.autofill.push(t);
+
+			}
+
+		};
+
+		// Backward compatibility
+		PROTO.formatter = function(fn) {
+			var t = this;
+			t.$formatter = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
+		};
+
+		// Backward compatibility
+		PROTO.parser = function(fn) {
+			var t = this;
+			t.$parser = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
 		};
 
 		/*
@@ -2009,7 +2083,7 @@
 
 			path = parsepath(t.makepath(path));
 			t.watchers.push({ path: path, fn: callback });
-			autoinit && setTimeout(() => callback(path.get(t.scope), path.path, path.flags));
+			autoinit && setTimeout(() => callback(path.get(t.scope), path.flags, path.path));
 		};
 
 		/*
@@ -2068,15 +2142,13 @@
 		*/
 		PROTO.modify = function(value, flags) {
 			var t = this;
-			t.config.touched = true;
-			t.config.modified = true;
+			t.reconfigure({ touched: 1, modified: 1 });
 			t.set(value, flags);
 		};
 
 		PROTO.change = function() {
 			var t = this;
-			t.config.touched = true;
-			t.config.modified = true;
+			t.reconfigure({ touched: 1, modified: 1 });
 			t.$validate();
 		};
 
@@ -2087,7 +2159,7 @@
 		*/
 		PROTO.touch = function() {
 			var t = this;
-			t.config.touched = true;
+			t.reconfigure({ touched: 1 });
 			t.$validate();
 		};
 
@@ -2098,12 +2170,24 @@
 		*/
 		PROTO.reset = function(noemit) {
 			var t = this;
-			t.config.touched = false;
-			t.config.modified = false;
-
+			t.reconfigure({ touched: 0, modified: 0 });
 			if (!noemit)
 				t.$validate();
+		};
 
+		PROTO.attrd = function(name, value) {
+			let el = this.element;
+			let key = 'data-' + name;
+			if (value === undefined)
+				return el.attr(key);
+			el.attr(key, value);
+		};
+
+		PROTO.attr = function(name, value) {
+			let el = this.element;
+			if (value === undefined)
+				return el.attr(name);
+			el.attr(name, value);
 		};
 
 		PROTO.tclass = function(cls, v) {
@@ -2240,6 +2324,8 @@
 				value = value.parseConfig();
 			}
 
+			var state = false;
+
 			for (let key in value) {
 
 				let val = value[key];
@@ -2250,14 +2336,22 @@
 					continue;
 				}
 
-				if (key.charAt(0) === '=') {
+				var c = key.charAt(0);
+
+				if (c === '=') {
 					// key watcher
 					t.watchconfig(key.substring(1), val);
 					continue;
 				}
 
+				if (c === '$')
+					continue;
+
 				t.configure && t.configure(key, val, init ? null : t.config[key], init);
 				t.config[key] = val;
+
+				if (key === 'touched' || key === 'invalid' || key === 'modified' || key === 'disabled')
+					state = true;
 			}
 
 			if (value.$assign)
@@ -2271,6 +2365,10 @@
 
 			if (value.$init)
 				t.EXEC(value.$init, t);
+
+			if (!init && state)
+				t.$state();
+
 		};
 
 		/*
@@ -2280,7 +2378,7 @@
 		*/
 		PROTO.refresh = function() {
 			var t = this;
-			t.$setter(t.get(), t.path.toString(), { refresh: 1 });
+			t.$setter(t.get(), { refresh: 1 }, t.path.toString());
 		};
 
 		/*
@@ -2350,20 +2448,20 @@
 			var prev = t.element;
 
 			if (remove) {
-				delete t.dom.$totalcomponent;
-				delete t.dom.$totalplugin;
+				delete t.dom.$uicomponent;
+				delete t.dom.$uiplugin;
 				prev.off().remove();
 			}
 
 			t.element = $(target);
 			t.dom = t.element[0];
-			t.dom.$totalcomponent = t;
+			t.dom.$uicomponent = t;
 			t.dom.$proxycomponent = t.proxy;
 
 			if (t.plugin) {
 				t.element.attr('plugin', t.plugin.name);
 				t.dom.$proxyplugin = t.plugin.proxy;
-				t.dom.$totalplugin = t.plugin;
+				t.dom.$uiplugin = t.plugin;
 			}
 
 			return t;
@@ -2381,7 +2479,7 @@
 				t.$datasource = source = { path: path, fn: callback };
 				if (init !== false && !t.$loaded) {
 					t.watch(path, callback);
-					source.refresh = () => callback(T.get(t.scope, path), path, {});
+					source.refresh = () => callback(T.get(t.scope, path), {}, path);
 				} else
 					t.watch(path, callback, init !== false);
 
@@ -2391,15 +2489,45 @@
 			return t;
 		};
 
+		// Backward compatibility
+		PROTO.isInvalid = function() {
+			var cfg = this.config;
+			return cfg.touched && cfg.invalid;
+		};
+
 		// Internal method
 		PROTO.$state = function() {
+
 			var t = this;
+			var config = t.config;
 			var cls = t.element[0].classList;
-			cls.toggle('ui-touched', t.config.touched == true);
-			cls.toggle('ui-modified', t.config.modified == true);
-			cls.toggle('ui-disabled', t.config.disabled == true);
-			cls.toggle('ui-invalid', t.config.invalid == true);
-			t.state && t.state();
+
+			cls.toggle('ui-touched', !!config.touched);
+			cls.toggle('ui-modified', !!config.modified);
+			cls.toggle('ui-disabled', !!config.disabled);
+			cls.toggle('ui-invalid', !!config.invalid);
+
+			if (t.state && t.$loaded) {
+
+				// Arguments due to backward compatibility
+				var type = 2;
+				var what = 4;
+
+				if (t.internal.autobound) {
+					t.internal.autobound = false;
+					type = 1;
+				}
+
+				if (!t.internal.state) {
+					t.internal.state = true;
+					type = 0;
+					what = 5;
+				} else if (!config.touched && !config.modified)
+					what = 3;
+
+				t.state(type, what);
+			}
+
 		};
 
 		// Internal method
@@ -2408,17 +2536,19 @@
 			var t = this;
 
 			if (t.internal.readonly || !t.validate) {
-				t.config.invalid = false;
+				t.reconfigure({ invalid: false });
 			} else {
 				let r = t.validate(value === undefined ? t.get() : value);
-				t.config.invalid = r === '' || r == true ? false : typeof(r) === 'string' ? r : true;
+				let tmp = { invalid: r === '' || r == true ? false : typeof(r) === 'string' ? r : true };
+				t.reconfigure(tmp);
 			}
 
 			t.$state();
 		};
 
 		// Internal method
-		PROTO.$setter = function(value, path, flags) {
+		PROTO.$setter = function(value, flags, path) {
+
 			var t = this;
 
 			if ((flags.init || flags.default) && (value == null) && t.def) {
@@ -2432,11 +2562,15 @@
 			if (t.skip) {
 				flags.skip = true;
 				t.skip = false;
-			} else if (t.setter)
-				t.setter(value, flags, path);
+			} else {
+				// Backward compatibility
+				t.setter && t.setter(value, path, flags);
+				t.value && t.value(value, flags, path);
+			}
 
-			t.setter2 && t.setter2(value, flags, path);
-			t.config.$setter && t.EXEC(t.config.$setter, value, flags, path);
+			t.setter2 && t.setter2(value, path, flags);
+			t.config.$setter && t.EXEC(t.config.$setter, value, path, flags);
+			t.config.$value && t.EXEC(t.config.$value, value, flags, path);
 			t.$validate();
 		};
 
@@ -2468,7 +2602,7 @@
 	(function() {
 
 		function compile(value) {
-			return new Function('element', 'path', 'value', 'var el = element;return ' + value);
+			return new Function('element', 'value', 'flags', 'path', 'var el = element;return ' + value);
 		}
 
 		T.Binder = function(proxy) {
@@ -2477,7 +2611,7 @@
 		function reconfigure(el, config) {
 			var arr = el.find('ui-component');
 			for (let m of arr)
-				m.$totalcomponent.reconfigure(config);
+				m.$uicomponent.reconfigure(config);
 		}
 
 		var PROTO = T.Binder.prototype;
@@ -2665,7 +2799,7 @@
 			return t.plugin ? val.replace(/\?/, t.plugin.path.path) : val;
 		};
 
-		PROTO.fn = function(value, path, flags, nodelay) {
+		PROTO.fn = function(value, flags, path, nodelay) {
 
 			let t = this;
 
@@ -2716,7 +2850,7 @@
 
 			if (t.delay && !nodelay) {
 				t.timeout && clearTimeout(t.timeout);
-				t.timeout = setTimeout((path, value, flags) => this.fn(path, value, flags, true), t.delay, path, value, flags);
+				t.timeout = setTimeout((path, value, flags) => this.fn(value, flags, path, true), t.delay, value, flags, path);
 				return;
 			}
 
@@ -2734,7 +2868,7 @@
 				if (m.selector)
 					el = el.find(m.selector);
 
-				var val = m.fn ? m.fn(el, path, value, flags) : value;
+				var val = m.fn ? m.fn(el, value, flags, path) : value;
 
 				if (m.notnull && val == null)
 					continue;
@@ -3060,7 +3194,7 @@
 			@Method: String.prototype.args(obj, [encode]); #obj {Object} payload, #encode {String/Function(key, value)} supported values `json`, `escape` and `encode`; #return {String};
 			The method checks if the string is a serialized JSON date.
 		*/
-		PROTO.args = function(obj, encode, def) {
+		PROTO.args = function(obj, encode) {
 
 			var isfn = typeof(encode) === 'function';
 
@@ -3838,12 +3972,23 @@
 
 		/*
 			@Path: Globals
-			@Method: ERRORS(path, callback); #path {String}; #callback {Function(arr)};
-			The method returns errors based on the path.
+			@Method: ERRORS(path, callback); #path {String|jQuery Element}; #callback {Function(arr)};
+			The method returns errors based on the path in the callback argument.
 		*/
 		W.ERRORS = function(path, callback) {
-			path = parsepath(path + ' @invalid');
-			path.find(T.scope, callback);
+			if (path instanceof jQuery) {
+				let arr = path.find('ui-component');
+				let err = [];
+				for (let m of arr) {
+					let com = m.$uicomponent;
+					if (com && com.ready && com.config.invalid)
+						err.push(com);
+				}
+				callback(err);
+			} else {
+				path = path instanceof T.Path ? path : parsepath(path + ' @invalid');
+				path.find(T.scope, callback);
+			}
 		};
 
 		/*
@@ -3856,7 +4001,7 @@
 				return true;
 			if (el instanceof jQuery)
 				el = el[0];
-			return el.parentNode && el.parentNode.tagName === 'body' ? false : W.isIE ? (!el.offsetWidth && !el.offsetHeight) : !el.offsetParent;
+			return el.parentNode && el.parentNode.tagName === 'BODY' ? false : W.isIE ? (!el.offsetWidth && !el.offsetHeight) : !el.offsetParent;
 		};
 
 		/*
@@ -5109,8 +5254,7 @@
 		};
 
 		$.fn.component = function() {
-			var parent = findparent(this[0], 'UI-COMPONENT');
-			return parent ? parent.$proxycomponent.instance : null;
+			return findinstance(this[0], '$uicomponent');
 		};
 
 		var classtimeout = function(el, a, t) {
@@ -5393,7 +5537,30 @@
 			});
 
 			$W.on('visibilitychange', () => T.emit('visible', !document.hidden));
-			$(document).ready(() => T.emit('ready'));
+			$(document).ready(function() {
+
+				setTimeout(function() {
+					let arr = T.autofill.splice(0);
+					for (let m of arr) {
+
+						if (!m.def)
+							continue;
+
+						let el = m.element.find('input,textarea,select');
+						if (el.length) {
+							let val = el.val();
+							if (val) {
+								var tmp = m.$parser ? m.$parser(val) : val;
+								if (tmp)
+									m.set(val, '@change @init');
+							}
+						}
+					}
+				}, 1000);
+
+				T.emit('ready');
+
+			});
 		});
 
 	}, 1);
