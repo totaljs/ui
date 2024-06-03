@@ -50,8 +50,8 @@
 	DEF.pathplugins = 'Total.data.';
 	DEF.pathtmp = 'DEF.tmp.';
 	DEF.headers = { 'X-Requested-With': 'XMLHttpRequest' };
-	// DEF.fallback = 'https://cdn.componentator.com/20/{0}.html';
-	DEF.fallback = 'https://ui.totaljs.com/components/{0}.html';
+	DEF.fallback = 'https://cdn.componentator.com/j-{0}.html';
+	// DEF.fallback = 'https://ui.totaljs.com/components/{0}.html';
 	DEF.localstorage = 'totalui';
 	DEF.dictionary = {};
 	DEF.currency = '';
@@ -694,6 +694,61 @@
 			});
 		}
 
+	};
+
+	T.parse = function(type, value, format) {
+
+		switch (type) {
+			case 'number':
+			case 'currency':
+			case 'float':
+
+				var t = typeof(value);
+				var v = null;
+
+				if (t == 'string') {
+					switch (DEF.thousandsseparator) {
+						case ' ':
+							value = value.replace(/\s/g, '');
+							break;
+						case ',':
+							value = value.replace(/\s|,/g, '');
+							break;
+						case '.':
+							value = value.replace(/\s|\./g, '');
+							break;
+					}
+
+					if (DEF.decimalseparator === ',')
+						value = value.replace(/\,/g, '.');
+
+					if (value)
+						v = +value;
+					else
+						return null;
+
+				} else if (t === 'number')
+					v = value;
+				else
+					return null;
+
+				return isNaN(v) ? null : v;
+
+			case 'boolean':
+			case 'bool':
+				return value == null ? null : (value === true || value === '1' || value === 'true' || value === 'on' || value === 'yes' || value === 'y');
+
+			case 'date':
+			case 'datetime':
+				if (!value)
+					return null;
+				if (value instanceof Date)
+					return value;
+				value = value.parseDate(format || DEF.dateformat);
+				return value && value.getTime() ? value : null;
+		}
+
+		return value;
 	};
 
 	/*
@@ -1829,7 +1884,11 @@
 		};
 
 		// Backward compatibility
-		PROTO.autobind = function(prepare) {
+		PROTO.autobind20 = function() {
+			this.autobind(null, true);
+		};
+
+		PROTO.autobind = function(prepare, internal) {
 
 			var t = this;
 
@@ -1846,10 +1905,15 @@
 				timeout = null;
 				var value = t.find(selector).val();
 				if (value !== prev) {
+
 					if (prepare)
 						value = prepare(value);
-					// t.rewrite(value);
-					t.getter(value, false, false);
+
+					if (internal) {
+						// arguments false, false - are due to backward functionality
+						t.getter(value, false, false);
+					} else
+						t.rewrite(value);
 				}
 			};
 
@@ -1875,8 +1939,11 @@
 				if (prepare)
 					value = prepare(value);
 
-				// arguments true, false - are due to backward functionality
-				t.getter(value, true, false);
+				if (internal) {
+					// arguments true, false - are due to backward functionality
+					t.getter(value, true, false);
+				} else
+					t.rewrite(value);
 
 			}).on('focusin', selector, function() {
 				prev = $(this).val();
@@ -2565,12 +2632,10 @@
 			} else {
 				// Backward compatibility
 				t.setter && t.setter(value, path, flags);
-				t.value && t.value(value, flags, path);
 			}
 
 			t.setter2 && t.setter2(value, path, flags);
 			t.config.$setter && t.EXEC(t.config.$setter, value, path, flags);
-			t.config.$value && t.EXEC(t.config.$value, value, flags, path);
 			t.$validate();
 		};
 
@@ -3486,6 +3551,33 @@
 					output.push(self[i]);
 			}
 			return output;
+		};
+
+		PROTO.attr = function(name, value) {
+
+			var self = this;
+
+			if (arguments.length === 2) {
+				if (value == null)
+					return self;
+			} else if (value === undefined)
+				value = name + '';
+
+			self.push(name + '="' + ((value + '').env() + '').replace(/[<>&"]/g, function(c) {
+				switch (c) {
+					case '&':
+						return '&amp;';
+					case '<':
+						return '&lt;';
+					case '>':
+						return '&gt;';
+					case '"':
+						return '&quot;';
+				}
+				return c;
+			}) + '"');
+
+			return self;
 		};
 
 		PROTO.findIndex = function(cb, value) {
@@ -4416,26 +4508,6 @@
 				return value;
 			});
 			return encrypt && encryptsecret ? encrypt_data(tmp, encryptsecret) : tmp;
-		};
-
-		W.PARSE = function(value, date) {
-
-			if (typeof(value) === 'object')
-				return value;
-
-			// Is selector?
-			var c = (value || '').charAt(0);
-			if (c === '#' || c === '.')
-				return PARSE($(value).html(), date);
-
-			date === undefined && (date = MD.jsondate);
-			try {
-				return JSON.parse(value, function(key, value) {
-					return typeof(value) === 'string' && date && value.isJSONDate() ? new Date(value) : value;
-				});
-			} catch (e) {
-				return null;
-			}
 		};
 
 		function onresponse(opt) {
