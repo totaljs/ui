@@ -1883,12 +1883,7 @@
 			this.$autofill = val == null || value === true;
 		};
 
-		// Backward compatibility
 		PROTO.autobind20 = function() {
-			this.autobind(null, true);
-		};
-
-		PROTO.autobind = function(prepare, internal) {
 
 			var t = this;
 
@@ -1905,15 +1900,8 @@
 				timeout = null;
 				var value = t.find(selector).val();
 				if (value !== prev) {
-
-					if (prepare)
-						value = prepare(value);
-
-					if (internal) {
-						// arguments false, false - are due to backward functionality
-						t.getter(value, false, false);
-					} else
-						t.rewrite(value);
+					// arguments false, false - are due to backward functionality
+					t.getter(value, false, false);
 				}
 			};
 
@@ -1936,14 +1924,8 @@
 				var value = $(this).val();
 				prev = value;
 
-				if (prepare)
-					value = prepare(value);
-
-				if (internal) {
-					// arguments true, false - are due to backward functionality
-					t.getter(value, true, false);
-				} else
-					t.rewrite(value);
+				// arguments true, false - are due to backward functionality
+				t.getter(value, true, false);
 
 			}).on('focusin', selector, function() {
 				prev = $(this).val();
@@ -1997,6 +1979,55 @@
 					T.autofill.push(t);
 
 			}
+
+		};
+
+		PROTO.bind = function(flags, value) {
+
+			var t = this;
+			var cfg = {};
+			var is = false;
+			var validate = false;
+
+			if (flags) {
+				var arr = flags.split(/\s|,|\|/);
+				for (var m of arr) {
+					if (m.charAt(0) === '@')
+						m = m.substring(1);
+					switch (m) {
+						case 'validate':
+							validate = true;
+							break;
+						case 'touched':
+						case 'touch':
+							is = true;
+							cfg.touched = true;
+							break;
+						case 'modified':
+						case 'changed':
+						case 'modify':
+						case 'change':
+							is = true;
+							cfg.modified = true;
+							break;
+						case 'reset':
+							is = true;
+							cfg.modified = false;
+							cfg.touched = false;
+							break;
+					}
+				}
+			}
+
+			if (is)
+				t.reconfigure(cfg);
+
+			validate && t.$validate();
+
+			if (value !== undefined)
+				t.rewrite(value);
+			else if (is)
+				t.$state();
 
 		};
 
