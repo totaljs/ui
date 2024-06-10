@@ -3285,6 +3285,15 @@
 			return isNaN(val) ? def || 0 : val;
 		};
 
+		PROTO.encode = function() {
+			return Thelpers.encode(this);
+		};
+
+		// Backward compatibility
+		PROTO.COMPILABLE = function() {
+			return this;
+		};
+
 		/*
 			@Path: String.prototype
 			@Method: String.prototype.args(obj, [encode]); #obj {Object} payload, #encode {String/Function(key, value)} supported values `json`, `escape` and `encode`; #return {String};
@@ -5143,6 +5152,11 @@
 		*/
 		W.EXTENSION = function(name, config, callback) {
 
+			if (typeof(config) === 'function') {
+				callback = config;
+				config = '';
+			}
+
 			name = name.split(':').trim()[0];
 
 			var obj = { config: config ? typeof(config) === 'string' ? config.parseConfig() : config : null, callback: callback };
@@ -5516,14 +5530,14 @@
 		$.fn.asvg = function(tag) {
 
 			if (tag.indexOf('<') === -1) {
-				var el = D.createElementNS('http://www.w3.org/2000/svg', tag);
+				var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
 				this.append(el);
 				return $(el);
 			}
 
-			var d = D.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+			var d = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
 			d.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg">' + tag + '</svg>';
-			var f = D.createDocumentFragment();
+			var f = document.createDocumentFragment();
 			while (d.firstChild.firstChild)
 				f.appendChild(d.firstChild.firstChild);
 			f = $(f);
@@ -5534,14 +5548,14 @@
 		$.fn.psvg = function(tag) {
 
 			if (tag.indexOf('<') === -1) {
-				var el = D.createElementNS('http://www.w3.org/2000/svg', tag);
+				var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
 				this.prepend(el);
 				return $(el);
 			}
 
-			var d = D.createElementNS('http://www.w3.org/1999/xhtml', 'div');
+			var d = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
 			d.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg">' + tag + '</svg>';
-			var f = D.createDocumentFragment();
+			var f = document.createDocumentFragment();
 			while (d.firstChild.firstChild)
 				f.appendChild(d.firstChild.firstChild);
 
