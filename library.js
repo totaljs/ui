@@ -2837,7 +2837,7 @@
 
 						el.empty();
 
-						cmd.template = Tangular.compile(cmd.template);
+						cmd.template = Tangular.compile(cmd.template.replace(/SCR/g, 'script'));
 						commands.push(cmd);
 						break;
 					default:
