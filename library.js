@@ -52,7 +52,6 @@
 	DEF.pathtmp = 'DEF.tmp.';
 	DEF.headers = { 'X-Requested-With': 'XMLHttpRequest' };
 	DEF.fallback = 'https://cdn.componentator.com/j-{0}.html';
-	// DEF.fallback = 'https://ui.totaljs.com/components/{0}.html';
 	DEF.localstorage = 'jc';
 	DEF.dictionary = {};
 	DEF.currency = '';
@@ -69,6 +68,10 @@
 	DEF.devices = { xs: { max: 768 }, sm: { min: 768, max: 992 }, md: { min: 992, max: 1200 }, lg: { min: 1200 }};
 	DEF.empty = '---';
 	DEF.env = {};
+	DEF.env.ts = DEF.dateformat + ' - ' + DEF.timeformat;
+	DEF.env.date = DEF.dateformat;
+	DEF.env.time = DEF.timeformat;
+
 	DEF.prefixcsscomponents = 'ui-';
 	DEF.prefixcsslibrary = 'ui-';
 
@@ -211,9 +214,7 @@
 
 		var params = [];
 
-		path = path.replace(/\['.*?'\]|\[".*?"\]/g, function(text) {
-			return '[#' + (params.push(text) - 1) + ']';
-		});
+		path = path.replace(/\['.*?'\]|\[".*?"\]/g, text => '[#' + (params.push(text) - 1) + ']');
 
 		var arr = splitpath(path);
 		var builder = [];
@@ -230,9 +231,7 @@
 		var regarr = /\[\]/g;
 		var a = builder.join('') + 'var v=typeof(a)===\'function\'?a(jComponent.get(a, b)):a;w' + (v[0] === '[' ? '' : '.') + (ispush ? v.replace(regarr, '.push(v)') : (v + '=v')) + ';return v';
 
-		a = a.replace(/\[#\d+\]/g, function(text) {
-			return params[+text.substring(2, text.length - 1)];
-		});
+		a = a.replace(/\[#\d+\]/g, text => params[+text.substring(2, text.length - 1)]);
 
 		var fn = new Function('w', 'a', 'b', a);
 		return fn(scope, value, path);
@@ -1873,6 +1872,7 @@
 				}
 				t.$loaded = true;
 				t.$state();
+				t.done && t.done();
 			}
 		};
 
@@ -3101,8 +3101,7 @@
 			The method replaces all phrases `[key]` with values defined in the environment.
 		*/
 		PROTO.env = function() {
-			var self = this;
-			return self.replace(/(\[.*?\])/gi, function(val) {
+			return this.replace(/(\[.*?\])/gi, function(val) {
 				var key = val.substring(1, val.length - 1);
 				return (key.charAt(0) === '.' ? T.get(W, key.substring(1)) : DEF.env[key]) || val;
 			});
@@ -4071,6 +4070,13 @@
 
 		/*
 			@Path: Globals
+			@Method: inDOM(element); #element {Element}; #return {Boolean};
+			The method returns if the element is attached in the DOM.
+		*/
+		W.inDOM = inDOM;
+
+		/*
+			@Path: Globals
 			@Property: NOW; #return {Date};
 			The property always returns the current `Date` object refreshed in a one minute interval.
 		*/
@@ -4078,21 +4084,21 @@
 
 		/*
 			@Path: Globals
-			@Property: ON(name, callback); #name {String}; #callback {Function(a, b, c, d)};
+			@Method: ON(name, callback); #name {String}; #callback {Function(a, b, c, d)};
 			The method registers a new handler for capturing a specific event.
 		*/
 		W.ON = T.on;
 
 		/*
 			@Path: Globals
-			@Property: OFF(name, [callback]); #name {String}; #[callback] {Function};
+			@Method: OFF(name, [callback]); #name {String}; #[callback] {Function};
 			The method removes the existing handler for capturing a specific event.
 		*/
 		W.OFF = T.off;
 
 		/*
 			@Path: Globals
-			@Property: EMIT(name, [a], [b], [c], [d]); #name {String}; #[a] {Object}; #[b] {Object}; #[c] {Object}; #[d] {Object};
+			@Method: EMIT(name, [a], [b], [c], [d]); #name {String}; #[a] {Object}; #[b] {Object}; #[c] {Object}; #[d] {Object};
 			The method emits a specific event to all plugins and components.
 		*/
 		W.EMIT = T.emit;
@@ -4185,6 +4191,7 @@
 		W.COMPONENT = function(name, config, callback, dependencies, css) {
 
 			if (typeof(config) === 'function') {
+				css = dependencies;
 				dependencies = callback;
 				callback = config;
 				config = '';
@@ -4999,6 +5006,12 @@
 				return '';
 			});
 
+			if (!ext) {
+				ext = url.match(/\.[a-z0-9]+$/i);
+				if (ext)
+					ext = ext.toString();
+			}
+
 			var path = parsepath(url);
 			var cachekey = path.flags.singleton ? ('singleton' + key) : '';
 
@@ -5261,7 +5274,12 @@
 						return true;
 					}
 				}
-				success && W.SEEX(success, response);
+				if (success) {
+					if (typeof(success) === 'string')
+						T.seex(success, response);
+					else
+						success(response);
+				}
 				return false;
 			}
 
