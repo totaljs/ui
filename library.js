@@ -3,7 +3,7 @@
 
 (function(W) {
 
-	const ERR = 'Total.js UI: {0}';
+	const ERR = 'jComponent: {0}';
 	const Total = {};
 	const DEF = {
 		cl: {}
@@ -13,6 +13,7 @@
 	const T = Total;
 
 	W.Total = T;
+	W.jComponent = T;
 	W.DEF = DEF;
 	W.PLUGINS = {};
 	W.W = W;
@@ -598,7 +599,7 @@
 			for (let m of T.components) {
 				if (m.ready && m.scope === scope) {
 					if (m.path && path.includes(m.path)) {
-						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.invalid && !m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
+						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.required && !m.config.required) || (path.flags.invalid && !m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
 							continue;
 						arr.push(m);
 					}
@@ -4060,6 +4061,30 @@
 			T.notify(T.scope, path);
 		};
 
+		W.RESET = function(path) {
+			T.notify(T.scope, path + ' @reset');
+		};
+
+		/*
+			@Path: Globals
+			@Method: COMPONENTS(path); #path {String};
+			The method returns all components on the specific path. It supports flags @touched, @visible, @modified, @invalid, @disabled, @enabled, @required
+		*/
+		W.COMPONENTS = function(path) {
+			path = path instanceof T.Path ? path : parsepath(path);
+			var arr = [];
+			for (let m of T.components) {
+				if (m.ready && m.scope === T.scope) {
+					if (m.path && path.includes(m.path)) {
+						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.hidden && !HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.required && !m.config.required) || (path.flags.invalid && !m.config.invalid) || (path.flags.valid && m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
+							continue;
+						arr.push(m);
+					}
+				}
+			}
+			return arr;
+		};
+
 		/*
 			@Path: Globals
 			@Method: COMPONENT(name, [config], callback, [dependencies]); #path {String}; #[config] {Object}; #callback {Function(self, config, cls, element)}; #[dependencies] {String};
@@ -4078,6 +4103,17 @@
 
 			T.db.components[name] = { count: 0, config: (config || '').parseConfig(), callback: callback, dependencies: dependencies, css: css };
 			rebuildcss();
+		};
+
+		W.NEWUIBIND = function(element, path, config) {
+
+			if (!path)
+				path = element.getAttribute('path');
+
+			if (!config)
+				config = element.getAttribute('config');
+
+			return T.newbinder(element, path, config);
 		};
 
 		/*
@@ -5453,12 +5489,12 @@
 			}
 
 			var arr = (self.attr('class') || '').split(' ');
-			var isReg = typeof(a) === 'object';
+			var isreg = typeof(a) === 'object';
 
 			for (var i = 0; i < arr.length; i++) {
 				var cls = arr[i];
 				if (cls) {
-					if (isReg) {
+					if (isreg) {
 						if (a.test(cls))
 							self.rclass(cls);
 					} else {
@@ -5570,6 +5606,17 @@
 
 		$.fn.SETTER = function(name, a, b, c, d) {
 			T.setter($(this), name, a, b, c, d);
+		};
+
+		$.fn.COMPONENTS = function() {
+			var list = $(this).find('ui-component');
+			var arr = [];
+			for (let el of list) {
+				let m = el.$uicomponent;
+				if (m && m.ready && m.scope === T.scope)
+					arr.push(m);
+			}
+			return arr;
 		};
 
 		$.fn.EXEC = function(name, a, b, c, d) {
