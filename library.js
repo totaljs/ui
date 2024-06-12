@@ -48,12 +48,12 @@
 
 	DEF.pathcommon = 'common.';
 	DEF.pathcl = 'DEF.cl.';
-	DEF.pathplugins = 'Total.data.';
+	DEF.pathplugins = 'jComponent.data.';
 	DEF.pathtmp = 'DEF.tmp.';
 	DEF.headers = { 'X-Requested-With': 'XMLHttpRequest' };
 	DEF.fallback = 'https://cdn.componentator.com/j-{0}.html';
 	// DEF.fallback = 'https://ui.totaljs.com/components/{0}.html';
-	DEF.localstorage = 'totalui';
+	DEF.localstorage = 'jc';
 	DEF.dictionary = {};
 	DEF.currency = '';
 	DEF.currencies = {};
@@ -78,6 +78,9 @@
 	DEF.regexp.date = /YYYY|yyyy|YY|yy|MMMM|MMM|MM|M|dddd|DDDD|DDD|ddd|DD|dd|D|d|HH|H|hh|h|mm|m|ss|s|a|ww|w/g;
 	DEF.regexp.pluralize = /#{1,}/g;
 	DEF.regexp.format = /\{\d+\}/g;
+	DEF.regexp.url = /http(s)?:\/\/[^,{}\\]*$/i;
+	DEF.regexp.phone = /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,8}$/im;
+	DEF.regexp.email = /^[a-zA-Z0-9-_.+]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i;
 
 	DEF.onstorageread = function(callback) {
 		let cache = {};
@@ -93,10 +96,10 @@
 		} catch (e) {}
 	};
 
+	T.version = 20;
 	T.is20 = true;
 	T.ready = false;
-	T.scope = W;
-	T.version = 20;
+	T.root = W;
 	T.components = [];
 	T.binders = [];
 	T.scrollbars = [];
@@ -107,6 +110,7 @@
 	T.caller = null;
 	T.def = DEF;
 	T.autofill = [];
+	T.scope = NOOP;
 
 	T.cache = {
 		timeouts: {},
@@ -163,7 +167,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.free();
+		@Method: jComponent.free();
 		The method clears all removed components, binders and plugins.
 	*/
 	T.free = function() {
@@ -194,7 +198,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.set(scope, path, value); #scope {Object}; #path {String}; #value {Object};
+		@Method: jComponent.set(scope, path, value); #scope {Object}; #path {String}; #value {Object};
 		The method assigns a `value` based on a `path` to the defined `scope`.
 	*/
 	T.set = function(scope, path, value) {
@@ -224,7 +228,7 @@
 		var v = arr[arr.length - 1];
 		var ispush = v.lastIndexOf('[]') !== -1;
 		var regarr = /\[\]/g;
-		var a = builder.join('') + 'var v=typeof(a)===\'function\'?a(Total.get(a, b)):a;w' + (v[0] === '[' ? '' : '.') + (ispush ? v.replace(regarr, '.push(v)') : (v + '=v')) + ';return v';
+		var a = builder.join('') + 'var v=typeof(a)===\'function\'?a(jComponent.get(a, b)):a;w' + (v[0] === '[' ? '' : '.') + (ispush ? v.replace(regarr, '.push(v)') : (v + '=v')) + ';return v';
 
 		a = a.replace(/\[#\d+\]/g, function(text) {
 			return params[+text.substring(2, text.length - 1)];
@@ -236,7 +240,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.get(scope, path); #scope {Object}; #path {String}; #return {String/Boolean/Object};
+		@Method: jComponent.get(scope, path); #scope {Object}; #path {String}; #return {String/Boolean/Object};
 		The method reads a `value` based on a `path` in the defined `scope`.
 	*/
 	T.get = function(scope, path) {
@@ -317,8 +321,8 @@
 		}
 
 		path = parsepath(path);
-		T.watchers.push({ scope: T.scope, path: path, fn: callback });
-		autoinit && setTimeout(() => callback(path.get(T.scope), path.flags, path.path), 1);
+		T.watchers.push({ scope: T.root, path: path, fn: callback });
+		autoinit && setTimeout(() => callback(path.get(T.root), path.flags, path.path), 1);
 	};
 
 	T.unwatch = function(path, callback) {
@@ -589,7 +593,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.find(scope, path, callback); #scope {object}; #path {String}; #callback {Function(arr)};
+		@Method: jComponent.find(scope, path, callback); #scope {object}; #path {String}; #callback {Function(arr)};
 		The method returns in the callback all component instances defined in the path scope.
 	*/
 	T.find = function(scope, path, callback) {
@@ -611,7 +615,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.notify(scope, path); #scope {Object}; #path {String};
+		@Method: jComponent.notify(scope, path); #scope {Object}; #path {String};
 		The method notifies all watchers based on a `path` ot the defined `scope`.
 	*/
 	T.notify = function(scope, path, onlyflags) {
@@ -754,7 +758,7 @@
 
 	/*
 		@Path: Core
-		@Method: Total.cl(name, callback); #name {String}; #callback {Function()};
+		@Method: jComponent.cl(name, callback); #name {String}; #callback {Function()};
 		The method inicializes codelists.
 	*/
 	T.cl = function(name, callback) {
@@ -1294,7 +1298,7 @@
 
 		/*
 			@Path: Path
-			@Class: Total.Path(path)
+			@Class: jComponent.Path(path)
 			The class parses dynamic paths.
 		*/
 		T.Path = function(path) {
@@ -1505,11 +1509,11 @@
 
 			if (t.flags2) {
 				for (let m of t.flags2)
-					Total.emit('@flag ' + m);
+					T.emit('@flag ' + m);
 			}
 
 			if (t.cl)
-				Total.cl(t.cl, callback);
+				T.cl(t.cl, callback);
 			else
 				callback();
 
@@ -1530,7 +1534,7 @@
 	(function() {
 
 		/*
-			@Class: Total.Plugin()
+			@Class: jComponent.Plugin()
 			The class handles plugins.
 		*/
 		T.Plugin = function() {
@@ -1818,7 +1822,7 @@
 	(function() {
 
 		/*
-			@Class: Total.Plugin(proxy);
+			@Class: jComponent.Plugin(proxy);
 			The class handles components.
 		*/
 		T.Component = function(proxy) {
@@ -2810,7 +2814,7 @@
 						commands.push(cmd);
 						break;
 					case 'helpers':
-						t[cmd.name] = new Function('scope', 'return Total.get(scope, "{0}")'.format(t.replace(value)));
+						t[cmd.name] = new Function('scope', 'return jComponent.get(scope, "{0}")'.format(t.replace(value)));
 						break;
 					case 'exec':
 					case 'refresh':
@@ -3325,6 +3329,94 @@
 
 				return val === undefined ? text : val === null ? '' : (val + '');
 			});
+		};
+
+		const DIACRITICS = { 225:'a',228:'a',269:'c',271:'d',233:'e',283:'e',357:'t',382:'z',250:'u',367:'u',252:'u',369:'u',237:'i',239:'i',244:'o',243:'o',246:'o',353:'s',318:'l',314:'l',253:'y',255:'y',263:'c',345:'r',341:'r',328:'n',337:'o' };
+
+		PROTO.toASCII = function() {
+			var buf = '';
+			for (var i = 0; i < this.length; i++) {
+				var c = this[i];
+				var code = c.charCodeAt(0);
+				var isUpper = false;
+
+				var r = DIACRITICS[code];
+				if (r === undefined) {
+					code = c.toLowerCase().charCodeAt(0);
+					r = DIACRITICS[code];
+					isUpper = true;
+				}
+
+				if (r === undefined) {
+					buf += c;
+					continue;
+				}
+
+				c = r;
+				buf += isUpper ? c.toUpperCase() : c;
+			}
+			return buf;
+		};
+
+		PROTO.toSearch = function() {
+
+			var str = this.replace(/[^a-zA-Zá-žÁ-Žа-яА-Я\d\s:]/g, '').trim().toLowerCase().toASCII();
+			var buf = [];
+			var prev = '';
+
+			for (var i = 0; i < str.length; i++) {
+				var c = str.substring(i, i + 1);
+				if (c === 'y')
+					c = 'i';
+				if (c !== prev) {
+					prev = c;
+					buf.push(c);
+				}
+			}
+
+			return buf.join('');
+		};
+
+		PROTO.slug = function(max) {
+			max = max || 60;
+
+			var self = this.trim().toLowerCase().toASCII();
+			var builder = '';
+			var length = self.length;
+
+			for (var i = 0; i < length; i++) {
+				var c = self.substring(i, i + 1);
+				var code = self.charCodeAt(i);
+
+				if (builder.length >= max)
+					break;
+
+				if (code > 31 && code < 48) {
+					if (builder.substring(builder.length - 1, builder.length) !== '-')
+						builder += '-';
+				} else if (code > 47 && code < 58)
+					builder += c;
+				else if (code > 94 && code < 123)
+					builder += c;
+			}
+
+			var l = builder.length - 1;
+			return builder[l] === '-' ? builder.substring(0, l) : builder;
+		};
+
+		PROTO.isEmail = function() {
+			var str = this;
+			return str.length <= 4 ? false : DEF.regexp.email.test(str);
+		};
+
+		PROTO.isPhone = function() {
+			var str = this;
+			return str.length < 6 ? false : DEF.regexp.phone.test(str);
+		};
+
+		PROTO.isURL = function() {
+			var str = this;
+			return str.length <= 7 ? false : DEF.regexp.url.test(str);
 		};
 
 	})();
@@ -4035,8 +4127,8 @@
 		W.SET = function(path, value) {
 			path = parsepath(path);
 			path.exec(function() {
-				path.set(T.scope, value);
-				path.notify(T.scope);
+				path.set(T.root, value);
+				path.notify(T.root);
 			});
 		};
 
@@ -4048,8 +4140,8 @@
 		W.GET = function(path) {
 			var flags = path.includes(' ');
 			path = parsepath(path);
-			flags && path.notify(T.scope);
-			return path.get(T.scope);
+			flags && path.notify(T.root);
+			return path.get(T.root);
 		};
 
 		/*
@@ -4058,11 +4150,11 @@
 			The method notifies all UI components and watchers based on the path.
 		*/
 		W.UPD = W.UPDATE = function(path) {
-			T.notify(T.scope, path);
+			T.notify(T.root, path);
 		};
 
 		W.RESET = function(path) {
-			T.notify(T.scope, path + ' @reset');
+			T.notify(T.root, path + ' @reset');
 		};
 
 		/*
@@ -4074,7 +4166,7 @@
 			path = path instanceof T.Path ? path : parsepath(path);
 			var arr = [];
 			for (let m of T.components) {
-				if (m.ready && m.scope === T.scope) {
+				if (m.ready && m.scope === T.root) {
 					if (m.path && path.includes(m.path)) {
 						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.hidden && !HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.required && !m.config.required) || (path.flags.invalid && !m.config.invalid) || (path.flags.valid && m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
 							continue;
@@ -4155,7 +4247,7 @@
 				callback(err);
 			} else {
 				path = path instanceof T.Path ? path : parsepath(path + ' @invalid');
-				path.find(T.scope, callback);
+				path.find(T.root, callback);
 			}
 		};
 
@@ -4279,7 +4371,7 @@
 			if (value !== undefined) {
 				T.events.env && T.emit('env', name, value);
 				DEF.env[name] = value;
-				// T.notify(T.scope, 'DEF.env.' + name);
+				// T.notify(T.root, 'DEF.env.' + name);
 				return value;
 			}
 
@@ -4674,7 +4766,7 @@
 
 			opt.id = url;
 			opt.method = url.substring(0, index);
-			opt.scope = scope || T.scope;
+			opt.scope = scope || T.root;
 			opt.flags = {};
 
 			url = url.substring(index + 1);
@@ -5613,7 +5705,7 @@
 			var arr = [];
 			for (let el of list) {
 				let m = el.$uicomponent;
-				if (m && m.ready && m.scope === T.scope)
+				if (m && m.ready && m.scope === T.root)
 					arr.push(m);
 			}
 			return arr;
@@ -5676,8 +5768,8 @@
 		if (resize.d !== d) {
 			resize.d = d;
 			var body = $('body');
-			body.rclass('ui-lg ui-md ui-sm ui-xs');
-			body.aclass('ui-' + d);
+			body.rclass('jc-lg jc-md jc-sm jc-xs');
+			body.aclass('jc-' + d);
 		}
 
 		T.ready && T.emit('resize2');
