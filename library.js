@@ -1659,11 +1659,11 @@
 		PROTO.get = function(path) {
 
 			var t = this;
-			var obj = null;
 
 			path = t.path.assign(path);
 
 			/*
+			var obj = null;
 			@TODO: Not implemented
 			if (path.flags.modified) {
 				obj = {};
@@ -2141,7 +2141,7 @@
 			The method reads a value from the model.
 		*/
 		PROTO.get = function() {
-			return this.path.get(this.scope);
+			return this.path ? this.path.get(this.scope) : null;
 		};
 
 		/*
@@ -2481,7 +2481,7 @@
 		*/
 		PROTO.refresh = function() {
 			var t = this;
-			t.$setter(t.get(), { refresh: 1 }, t.path.toString());
+			t.$setter(t.get(), { refresh: 1 }, t.path ? t.path.toString() : '');
 		};
 
 		/*
