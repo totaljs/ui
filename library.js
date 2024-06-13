@@ -2542,6 +2542,20 @@
 
 		/*
 			@Path: Component
+			@Method: instance.caniuse(name); #name {String}; #return {String};
+			The method checks if the component `name` is defined or not. You can use multiple names in the form `message|notify`.
+		*/
+		PROTO.caniuse = function(name) {
+			var arr = name.split(/\,|\|\s/);
+			for (var key of arr) {
+				if (T.db.components[key] || T.db.lazy[key])
+					return key;
+			}
+			return false;
+		};
+
+		/*
+			@Path: Component
 			@Method: instance.replace(target, [remove]); #target {Element/jQuery}; #[remove] {Boolean};
 			The method moves the component into another element defined in the `target` argument.
 		*/
