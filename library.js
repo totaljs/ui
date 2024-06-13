@@ -995,7 +995,7 @@
 			t.element = el;
 			t.name = name || path || '';
 			t.path = path || '';
-			t.config = (typeof(config) === 'string' ? config.parseConfig(type === 'bind') : config) || {};
+			t.config = (typeof(config) === 'string' ? config.parseConfig(null, type === 'bind') : config) || {};
 			t.dom = el[0];
 			t.ready = false;
 			t.callback = callback;
@@ -3133,15 +3133,26 @@
 
 		/*
 			@Path: String.prototype
-			@Method: String.prototype.parseConfig();
+			@Method: String.prototype.parseConfig([def], [noconvert]); #def {String|Object} a default configuration; #noconvert {Boolean} disables number/boolean/datetime conversation; #returns {Object};
 			The method parses Total.js UI library configuration in the form `key1:value;key2:value`.
 		*/
-		PROTO.parseConfig = function(noconvert) {
+		PROTO.parseConfig = function(def, noconvert) {
 
 			let arr = this.replace(/\\;/g, '\0').split(';');
 			let colon = /(https|http|wss|ws):\/\//gi;
-			let output = {};
 			let regnum = /^(-)?[0-9.]+$/;
+			let output = {};
+
+			if (def) {
+				switch (typeof(def)) {
+					case 'string':
+						output = def.parseConfig(null, noconvert);
+						break;
+					case 'object':
+						output = CLONE(def);
+						break;
+				}
+			}
 
 			for (let m of arr) {
 
