@@ -1998,13 +1998,19 @@
 			var cfg = {};
 			var is = false;
 			var validate = false;
+			var setter = false;
+			var f = {};
 
 			if (flags) {
 				var arr = flags.split(/\s|,|\|/);
 				for (var m of arr) {
 					if (m.charAt(0) === '@')
 						m = m.substring(1);
+					f[m] = 1;
 					switch (m) {
+						case 'setter':
+							setter = true;
+							break;
 						case 'validate':
 							validate = true;
 							break;
@@ -2029,9 +2035,7 @@
 				}
 			}
 
-			if (is)
-				t.reconfigure(cfg);
-
+			is && t.reconfigure(cfg);
 			validate && t.$validate();
 
 			if (value !== undefined)
@@ -2039,6 +2043,7 @@
 			else if (is)
 				t.$state();
 
+			setter && t.setter(value !== undefined ? value : t.get(), t.path.toString(), f);
 		};
 
 		// Backward compatibility
