@@ -462,8 +462,13 @@
 
 	T.setter = function(element, name, a, b, c, d) {
 
-		var arr = T.components;
 		let raw = name;
+		let arr = T.components;
+		let check = name.charAt(0) === '!';
+
+		if (check)
+			name = name.substring(1);
+
 		let index = name.indexOf(' ');
 		let path = '';
 
@@ -514,7 +519,7 @@
 		}
 
 		// Check lazy components
-		if (name) {
+		if (!check && name) {
 			let proxy = T.db.lazy[name];
 			if (proxy) {
 				delete T.db.lazy[name];
