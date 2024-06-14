@@ -605,7 +605,7 @@
 		path.exec(function() {
 			var arr = [];
 			for (let m of T.components) {
-				if (m.ready && m.scope === scope) {
+				if (!m.internal.blind && m.ready && m.scope === scope) {
 					if (m.path && path.includes(m.path)) {
 						if ((path.flags.visible && HIDDEN(m.element)) || (path.flags.touched && !m.config.touched) || (path.flags.modified && !m.config.modified) || (path.flags.required && !m.config.required) || (path.flags.invalid && !m.config.invalid) || (path.flags.disabled && !m.config.disabled) || (path.flags.enabled && m.config.disabled))
 							continue;
@@ -631,7 +631,7 @@
 
 			// Component watchers
 			for (let m of T.components) {
-				if (m.ready && m.scope === scope) {
+				if (!m.internal.blind && m.ready && m.scope === scope) {
 					if (!m.path || path.includes(m.path)) {
 						if (path.flags.reset || path.flags.detault) {
 							m.reconfigure({ touched: 0, modified: 0 });
@@ -2070,9 +2070,6 @@
 		PROTO.blind = function() {
 			var t = this;
 			t.internal.blind = true;
-			var index = T.components.indexOf(t);
-			if (index !== -1)
-				T.components.splice(index, 1);
 		};
 
 		/*
