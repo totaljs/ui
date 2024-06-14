@@ -1,6 +1,3 @@
-// Total.js UI Library (jComponent v20)
-// DEV
-
 (function(W) {
 
 	const ERR = 'jComponent: {0}';
@@ -3549,6 +3546,75 @@
 				separatorDecimal = DEF.decimalseparator;
 
 			return minus + output + (dec.length ? separatorDecimal + dec : '');
+		};
+
+		PROTO.add = PROTO.inc = function(value, decimals) {
+
+			var self = this;
+
+			if (value == null)
+				return self;
+
+			if (typeof(value) === 'function')
+				return self + value;
+
+			var first = value.charCodeAt(0);
+			var is = false;
+
+			if (first < 48 || first > 57) {
+				is = true;
+				value = value.substring(1);
+			}
+
+			var length = value.length;
+			var num;
+
+			if (value[length - 1] === '%') {
+				value = value.substring(0, length - 1);
+				if (is) {
+					var val = value.parseFloat();
+					switch (first) {
+						case 42:
+							num = self * ((self / 100) * val);
+							break;
+						case 43:
+							num = self + ((self / 100) * val);
+							break;
+						case 45:
+							num = self - ((self / 100) * val);
+							break;
+						case 47:
+							num = self / ((self / 100) * val);
+							break;
+					}
+					return decimals !== undefined ? num.floor(decimals) : num;
+				} else {
+					num = (self / 100) * value.parseFloat();
+					return decimals !== undefined ? num.floor(decimals) : num;
+				}
+
+			} else
+				num = value.parseFloat();
+
+			switch (first) {
+				case 42:
+					num = self * num;
+					break;
+				case 43:
+					num = self + num;
+					break;
+				case 45:
+					num = self - num;
+					break;
+				case 47:
+					num = self / num;
+					break;
+				default:
+					num = self;
+					break;
+			}
+
+			return decimals !== undefined ? num.floor(decimals) : num;
 		};
 
 	})();
