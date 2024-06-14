@@ -1,3 +1,6 @@
+// Total.js UI Library (jComponent v20)
+// DEV
+
 (function(W) {
 
 	const ERR = 'jComponent: {0}';
@@ -4259,6 +4262,34 @@
 
 		W.RESET = function(path) {
 			T.notify(T.root, path + ' @reset');
+		};
+
+		W.PUSH = function(path, value) {
+			var shift = path.charAt(0) === '^';
+			if (shift)
+				path = path.substring(1);
+			path = parsepath(path);
+			path.exec(function() {
+				var model = path.get(T.root);
+				var allocate = false;
+
+				if (model == null) {
+					model = [];
+					allocate = true;
+				}
+
+				if (!(model instanceof Array))
+					model = [model];
+				if (shift)
+					model.unshift(value);
+				else
+					model.push(value);
+
+				if (allocate)
+					path.set(T.root, model);
+				else
+					path.notify(T.root);
+			});
 		};
 
 		/*
