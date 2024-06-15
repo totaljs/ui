@@ -2457,7 +2457,7 @@
 				if (c === '$')
 					continue;
 
-				t.configure && t.configure(key, val, init ? null : t.config[key], init);
+				t.configure && t.configure(key, val, init, init ? null : t.config[key], init);
 				t.config[key] = val;
 
 				if (key === 'touched' || key === 'invalid' || key === 'modified' || key === 'disabled')
@@ -2649,9 +2649,22 @@
 				} else if (!config.touched && !config.modified)
 					what = 3;
 
+				// Do not use @type and @what arguments
+				// Use "config" values
 				t.state(type, what);
 			}
 
+		};
+
+		PROTO.validate2 = function(value) {
+			var t = this;
+			t.$validate(value);
+			t.path.find(t.scope, function(arr) {
+				for (let m of arr) {
+					if (m !== t && m.state2)
+						m.state2(t);
+				}
+			});
 		};
 
 		// Internal method
