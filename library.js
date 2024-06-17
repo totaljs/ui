@@ -2468,8 +2468,8 @@
 				if (c === '$')
 					continue;
 
-				t.configure && t.configure(key, val, init, init ? null : t.config[key], init);
 				t.config[key] = val;
+				t.configure && t.configure(key, val, init, init ? null : t.config[key], init);
 
 				if (key === 'touched' || key === 'invalid' || key === 'modified' || key === 'disabled')
 					state = true;
@@ -2547,6 +2547,16 @@
 
 		PROTO.SEEX = function(name, a, b, c, d) {
 			T.seex(preparepath(this, name), a, b, c, d);
+		};
+
+		PROTO.parseSource = PROTO.parsesource = function(val) {
+
+			var type = '';
+
+			if (this.config.type === 'number')
+				type = 'number';
+
+			return val.parseSource(type);
 		};
 
 		/*
