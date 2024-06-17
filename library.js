@@ -4285,6 +4285,10 @@
 			return path.get(T.root);
 		};
 
+		W.NUL = W.NULL = function(path) {
+			SET(path, null);
+		};
+
 		/*
 			@Path: Globals
 			@Method: UPD(path); #path {String};
