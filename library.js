@@ -23,6 +23,8 @@
 	W.TEMP = {};
 	W.M = T;
 	W.$W = $(W);
+	W.MONTHS = 'January,February,March,April,May,June,July,August,September,October,November,December'.split(',');
+	W.DAYS = 'Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday'.split(',');
 
 	/*
 		@Path: Globals
