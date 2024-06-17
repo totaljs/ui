@@ -502,6 +502,11 @@
 
 		name = tmp[0];
 
+		if (T.cache.lockers[name]) {
+			setTimeout(T.setter, 300, element, raw, a, b, c, d);
+			return;
+		}
+
 		switch (sel) {
 			case '#': // identifier
 				id = name.substring(1);
@@ -511,11 +516,6 @@
 				pth = name.substring(1);
 				name = '';
 				break;
-		}
-
-		if (T.cache.lockers[name]) {
-			setTimeout(T.setter, 300, element, raw, a, b, c, d);
-			return;
 		}
 
 		// Check lazy components
@@ -540,11 +540,13 @@
 
 			if (m.ready) {
 				if (sel != '*') {
-					if (id && m.id !== id)
-						continue;
-					else if (pth && !m.path.includes(pth))
-						continue;
-					else if (m.name !== tmp[0])
+					if (id) {
+						if (m.id !== id)
+							continue;
+					} else if (pth) {
+						if (!m.path.includes(pth))
+							continue;
+					} else if (m.name !== tmp[0])
 						continue;
 				}
 
@@ -1207,7 +1209,6 @@
 
 			if (t.path.includes('?')) {
 				// absolute path
-
 				let parent = findplugin(t.type === 'plugin' ? t.dom.parentNode : t.dom);
 				if (parent) {
 
@@ -5654,12 +5655,15 @@
 			The method finds the closest plugin.
 		*/
 		$.fn.plugin = function() {
-			var parent = findplugin(this[0]);
-			return parent ? parent.$proxyplugin.instance : null;
+			return findinstance(this[0], '$uiplugin');
 		};
 
 		$.fn.component = function() {
 			return findinstance(this[0], '$uicomponent');
+		};
+
+		$.fn.binder = function() {
+			return findinstance(this[0], '$uibinder');
 		};
 
 		var classtimeout = function(el, a, t) {
