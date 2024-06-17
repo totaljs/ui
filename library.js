@@ -5597,6 +5597,10 @@
 			T.setter(null, name, a, b, c, d);
 		};
 
+		W.ASETTER = function(name, a, b, c, d) {
+			return () => T.setter(null, name, a, b, c, d);
+		};
+
 		function diffdomchecksum(el, type) {
 			return type ? el.getAttribute(type) : el.outerHTML;
 		}
