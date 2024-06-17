@@ -860,10 +860,15 @@
 	}
 
 	function parsepath(path) {
+
+		if (path instanceof T.Path)
+			return path;
+
 		var key = 'C' + HASH(path);
 		var cache = T.cache.paths[key];
 		if (cache)
 			return cache;
+
 		return T.cache.paths[key] = new T.Path(path);
 	}
 
@@ -2962,6 +2967,7 @@
 		};
 
 		PROTO.exec = function(value, path, flags) {
+			path = parsepath(path);
 			this.fn(value, path, flags || {});
 		};
 
