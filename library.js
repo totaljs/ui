@@ -11,6 +11,7 @@
 
 	const TNB = { number: 1, boolean: 1 };
 	const T = Total;
+	var readycounter = 0;
 
 	W.Total = T;
 	W.jComponent = T;
@@ -461,6 +462,12 @@
 	};
 
 	T.setter = function(element, name, a, b, c, d) {
+
+		// Backward compatibility
+		if (name === true) {
+			T.setter(element, a + ' @important', b, c, d);
+			return;
+		}
 
 		let raw = name;
 		let arr = T.components;
@@ -1002,6 +1009,7 @@
 			t.ready = false;
 			t.callback = callback;
 			t.pending = [];
+			readycounter++;
 			setTimeout(t.init, 1, t);
 		};
 
@@ -1093,6 +1101,8 @@
 		}
 
 		PROTO.init = function(t) {
+
+			readycounter--;
 
 			if (t.ready)
 				return;
@@ -5978,8 +5988,14 @@
 					}
 				}, 1000);
 
-				T.emit('ready');
+				var check = function() {
+					if (readycounter > 0)
+						setTimeout(check, 5);
+					else
+						T.emit('ready');
+				};
 
+				check();
 			});
 		});
 
