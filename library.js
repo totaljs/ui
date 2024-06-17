@@ -1833,6 +1833,10 @@
 			t.element.remove();
 		};
 
+		PROTO.makepath = function(path) {
+			return preparepath(this, path);
+		};
+
 	})();
 
 	// Component declaration
@@ -2955,6 +2959,10 @@
 		PROTO.replaceplugin = function(val) {
 			var t = this;
 			return t.plugin ? val.replace(/\?/, t.plugin.path.path) : val;
+		};
+
+		PROTO.exec = function(value, path, flags) {
+			this.fn(value, path, flags || {});
 		};
 
 		PROTO.fn = function(value, flags, path, nodelay) {
