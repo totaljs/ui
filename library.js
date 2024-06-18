@@ -5021,7 +5021,7 @@
 			@Method: AJAX(url, [data], callback); #url {String}; #[data] {Object}; #callback {Function(response)};
 			The method parsers JSON and converts all dates to `Date` object.
 		*/
-		W.AJAX = function(url, data, callback, scope) {
+		W.AJAX = W.UPLOAD = function(url, data, callback, scope) {
 
 			var type = typeof(data);
 
@@ -5044,7 +5044,6 @@
 			index = url.indexOf(' ');
 
 			if (index !== -1) {
-
 				opt.url = url.substring(0, index);
 				url = url.substring(index + 1);
 				opt.path = new T.Path(url);
@@ -5070,7 +5069,7 @@
 			opt.onprogress = typeof(onprogress) === 'string' ? parsepath(onprogress) : onprogress;
 			opt.duration = Date.now();
 
-			if (opt.method !== 'GET')
+			if (opt.method !== 'GET' && !(data instanceof FormData))
 				opt.headers['Content-Type'] = typeof(data) === 'string' ? 'application/x-www-form-urlencoded' : 'application/json';
 
 			for (let key in DEF.headers)
