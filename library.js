@@ -3186,7 +3186,6 @@
 		PROTO.parseConfig = function(def, noconvert) {
 
 			let arr = this.replace(/\\;/g, '\0').split(';');
-			let colon = /(https|http|wss|ws):\/\//gi;
 			let regnum = /^(-)?[0-9.]+$/;
 			let output = {};
 
@@ -3203,15 +3202,10 @@
 
 			for (let m of arr) {
 
-				let item = m.replace(/\0/g, ';').replace(/\\:/g, '\0').replace(colon, text => text.replace(/:/g, '\0'));
-				let kv = item.split(':');
-				let l = kv.length;
-
-				let k = kv[0].trim().env();
-				if (!k)
-					continue;
-
-				let v = l === 2 ? kv[1].trim().replace(/\0/g, ':').env() : null;
+				let item = m.replace(/\0/g, ';').replace(/\\:/g, ':');
+				let index = item.indexOf(':');
+				let k = item.substring(0, index).trim().env();
+				let v = item.substring(index + 1).trim().env();
 
 				if (noconvert !== true) {
 					if (v === 'true' || v === 'false')
