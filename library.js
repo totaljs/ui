@@ -129,6 +129,7 @@
 		statics: {},
 		lockers: {},
 		resize: {},
+		blocked: {},
 		tmp: {}
 	};
 
@@ -3494,6 +3495,68 @@
 			return str.length <= 7 ? false : DEF.regexp.url.test(str);
 		};
 
+		PROTO.parseExpire = function() {
+
+			var t = this;
+
+			if (t === '' || t === '-' || t === DEF.empty || t === 'none' || t === '0')
+				return 0;
+
+			var str = this.split(' ');
+			var number = parseInt(str[0]);
+
+			if (isNaN(number))
+				return 0;
+
+			var min = 60000 * 60;
+
+			switch (str[1].trim().replace(/\./g, '')) {
+				case 'minutes':
+				case 'minute':
+				case 'min':
+				case 'mm':
+				case 'm':
+					return 60000 * number;
+				case 'hours':
+				case 'hour':
+				case 'HH':
+				case 'hh':
+				case 'h':
+				case 'H':
+					return min * number;
+				case 'seconds':
+				case 'second':
+				case 'sec':
+				case 'ss':
+				case 's':
+					return 1000 * number;
+				case 'days':
+				case 'day':
+				case 'DD':
+				case 'dd':
+				case 'd':
+					return (min * 24) * number;
+				case 'months':
+				case 'month':
+				case 'MM':
+				case 'M':
+					return (min * 24 * 28) * number;
+				case 'weeks':
+				case 'week':
+				case 'W':
+				case 'w':
+					return (min * 24 * 7) * number;
+				case 'years':
+				case 'year':
+				case 'yyyy':
+				case 'yy':
+				case 'y':
+					return (min * 24 * 365) * number;
+				default:
+					return 0;
+			}
+		};
+
 	})();
 
 	// Number prototypes
@@ -4433,6 +4496,27 @@
 				path = path instanceof T.Path ? path : parsepath(path + ' @invalid');
 				path.find(T.root, callback);
 			}
+		};
+
+		W.BLOCKED = function(key, timeout, callback) {
+
+			var item = T.cache.blocked[key];
+			var now = Date.now();
+
+			if (item > now)
+				return true;
+
+			if (typeof(timeout) === 'string')
+				timeout = timeout.env().parseExpire();
+
+			var local = timeout < 10000;
+			T.cache.blocked[key] = now + timeout;
+
+			if (!local && W.localStorage)
+				W.localStorage.setItem(DEF.localstorage + '.blocked', STRINGIFY(T.cache.blocked));
+
+			callback && callback();
+			return false;
 		};
 
 		/*
@@ -5979,6 +6063,15 @@
 
 	// load localStorage
 	setTimeout(function() {
+
+		T.cache.blocked = PARSE(W.localStorage && W.localStorage.getItem(DEF.localstorage + '.blocked') || '{}');
+
+		var now = Date.now();
+		var blocked = T.cache.blocked;
+		for (let key in blocked) {
+			if (blocked[key] < now)
+				delete blocked[key];
+		}
 
 		T.emit('init');
 		T.resize();
