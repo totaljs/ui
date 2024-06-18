@@ -1889,8 +1889,8 @@
 
 				t.make && t.make();
 				t.reconfigure(t.config, true);
-				t.path && t.$setter(t.get(), { init: 1 }, t.path.path);
 				t.$datasource && t.$datasource.refresh && t.$datasource.refresh();
+				t.path && t.$setter(t.get(), { init: 1 }, t.path.path);
 
 			} finally {
 				if (t.proxy.callback) {
