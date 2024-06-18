@@ -1607,6 +1607,9 @@
 				t.proxy.callback = null;
 			}
 
+			if (t instanceof T.Plugin)
+				t.config.init && EXEC(t.makepath(t.config.init), t.element);
+
 			t.ready = true;
 			t.make && t.make();
 		};
@@ -2770,6 +2773,7 @@
 	(function() {
 
 		function compile(value) {
+			console.log(value);
 			return new Function('element', 'value', 'flags', 'path', 'var el = element;return ' + value);
 		}
 
@@ -3205,8 +3209,8 @@
 
 				let item = m.replace(/\0/g, ';').replace(/\\:/g, ':');
 				let index = item.indexOf(':');
-				let k = item.substring(0, index).trim().env();
-				let v = item.substring(index + 1).trim().env();
+				let k = index === -1 ? item : item.substring(0, index).trim().env();
+				let v = index === -1 ? '' : item.substring(index + 1).trim().env();
 
 				if (noconvert !== true) {
 					if (v === 'true' || v === 'false')
@@ -5150,14 +5154,6 @@
 
 			return text;
 		};
-
-		function removescripts(str) {
-			return str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, function(text) {
-				var index = text.indexOf('>');
-				var scr = text.substring(0, index + 1);
-				return scr.substring(0, 6) === '<style' || (scr.substring(0, 7) === ('<script') && scr.indexOf('type="') === -1) || scr.indexOf('/javascript"') !== -1 ? '' : text;
-			});
-		}
 
 		function importscripts(str) {
 
