@@ -2773,7 +2773,6 @@
 	(function() {
 
 		function compile(value) {
-			console.log(value);
 			return new Function('element', 'value', 'flags', 'path', 'var el = element;return ' + value);
 		}
 
