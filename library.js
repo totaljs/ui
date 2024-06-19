@@ -645,6 +645,7 @@
 			// Component watchers
 			for (let m of T.components) {
 				if (!m.internal.blind && m.ready && m.scope === scope) {
+
 					if (!m.path || path.includes(m.path)) {
 						if (path.flags.reset || path.flags.detault) {
 							m.reconfigure({ touched: 0, modified: 0 });
@@ -1934,18 +1935,19 @@
 			var timeout = null;
 			var prev = null;
 
-			var updateforce = function() {
+			var updateforce = function(setter) {
 				timeout = null;
 				var value = t.find(selector).val();
 				if (value !== prev) {
 					// arguments false, false - are due to backward functionality
 					t.getter(value, false, false);
 				}
+				setter && t.refresh();
 			};
 
-			var update = function() {
+			var update = function(setter) {
 				timeout && clearTimeout(timeout);
-				timeout = setTimeout(updateforce, 200);
+				timeout = setTimeout(updateforce, 200, setter);
 			};
 
 			t.element.on('input', selector, function() {
@@ -1964,17 +1966,18 @@
 
 				// arguments true, false - are due to backward functionality
 				t.getter(value, true, false);
+				update(true);
 
 			}).on('focusin', selector, function() {
 				prev = $(this).val();
 			}).on('change', selector, function() {
 				if (!t.config.modified)
 					t.reconfigure({ modified: 1 });
-				update();
+				update(true);
 			}).on('blur', selector, function() {
 				if (!t.config.touched)
 					t.reconfigure({ touched: 1 });
-				update();
+				update(true);
 			});
 		};
 
@@ -1994,6 +1997,7 @@
 		};
 
 		PROTO.setter = function(value, path, flags) {
+
 			var t = this;
 
 			if (t.$formatter)
