@@ -2077,13 +2077,19 @@
 		// Backward compatibility
 		PROTO.formatter = function(fn) {
 			var t = this;
-			t.$formatter = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
+			if (typeof(fn) === 'function')
+				t.$formatter = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
+			else
+				return t.$formatter ? t.$formatter('', fn) : fn;
 		};
 
 		// Backward compatibility
 		PROTO.parser = function(fn) {
 			var t = this;
-			t.$parser = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
+			if (typeof(fn) === 'function')
+				t.$parser = (path, value) => fn.call(t, t.path.toString(), value, t.config.type, t.config.format);
+			else
+				return t.$parser ? t.$parser('', fn) : fn;
 		};
 
 		/*
