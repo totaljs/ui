@@ -130,6 +130,7 @@
 		lockers: {},
 		resize: {},
 		blocked: {},
+		wait: {},
 		tmp: {}
 	};
 
@@ -1910,6 +1911,7 @@
 		// Deprecated
 		PROTO.bindvisible = NOOP;
 		PROTO.nocompile = NOOP;
+		PROTO.release = NOOP;
 
 		PROTO.makepath = function(path) {
 			return preparepath(this, path);
@@ -4522,6 +4524,40 @@
 			return false;
 		};
 
+		W.WAIT = function(fn, callback) {
+
+			var key = ((Math.random() * 10000) >> 0).toString(36);
+			var is = typeof(fn) === 'string';
+			var run = false;
+
+			if (is) {
+				var result = T.get(T.root, fn);
+				if (result)
+					run = true;
+			} else if (fn())
+				run = true;
+
+			if (run) {
+				callback();
+				return;
+			}
+
+			T.cache.wait[key] = setInterval(function() {
+
+				if (is) {
+					var result = T.get(T.root, fn);
+					if (result == null)
+						return;
+				} else if (!fn())
+					return;
+
+				clearInterval(T.cache.wait[key]);
+				delete T.cache.wait[key];
+				callback();
+
+			}, 500);
+		};
+
 		/*
 			@Path: Globals
 			@Method: HIDDEN(el); #el {jQuery/Element}
@@ -6091,6 +6127,9 @@
 						var el = $(document.body);
 						var fn = function(plus, forceprevent) {
 							return function execlick(e) {
+
+								if (T.db.components.exec)
+									return;
 
 								var el = $(this);
 
