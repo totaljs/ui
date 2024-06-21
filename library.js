@@ -3,6 +3,9 @@
 
 (function(W) {
 
+	if (W.jComponent)
+		return;
+
 	const ERR = 'jComponent: {0}';
 	const Total = {};
 	const DEF = {
@@ -3921,6 +3924,37 @@
 			return decimals !== undefined ? num.floor(decimals) : num;
 		};
 
+		PROTO.pluralize = function(zero, one, few, other) {
+
+			if (!one && typeof(zero) === 'string') {
+				// Environment
+				if (zero.charAt(0) === '[')
+					zero = zero.env();
+				zero = zero.split(',');
+			}
+
+			if (zero instanceof Array) {
+				one = zero[1];
+				few = zero[2];
+				other = zero[3];
+				zero = zero[0];
+			}
+
+			var num = this;
+			var value = '';
+
+			if (num == 0)
+				value = zero || '';
+			else if (num == 1)
+				value = one || '';
+			else if (num > 1 && num < 5)
+				value = few || '';
+			else
+				value = other;
+
+			return value.includes('#') ? value.replace(DEF.regexp.pluralize, text => text === '##' ? num.format() : (num + '')) : value;
+		};
+
 	})();
 
 	// Array prototypes
@@ -5181,7 +5215,7 @@
 			opt.status = req.status;
 			opt.text = req.statusText;
 			opt.response = req.responseText;
-			opt.iserror = opt.status >= 399;
+			opt.iserror = opt.status >= 399 || opt.status === 0;
 			opt.onprogress && T.process(opt.scope, 100, opt.onprogress);
 			opt.duration = Date.now() - opt.duration;
 			opt.headers = {};
@@ -5216,7 +5250,7 @@
 					return;
 			}
 
-			if (opt.path && opt.path.cache)
+			if (opt.path && opt.path.cache && !opt.iserror)
 				CACHE(opt.id, opt.response, opt.path.cache);
 
 			T.process(opt.scope, opt.response, opt.callback);
