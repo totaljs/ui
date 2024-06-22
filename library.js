@@ -1868,7 +1868,7 @@
 			t.commands = {};
 			t.watchers = [];
 
-			t.ID = t.id = GUID(10);
+			t.ID = t.id = 'c' + GUID(10);
 
 		};
 
@@ -5065,6 +5065,16 @@
 				b.push(Math.random().toString(36).substring(2));
 
 			return b.join('').substring(0, length);
+		};
+
+		W.COPY = function(a, b) {
+			var keys = Object.keys(a);
+			for (let key of keys) {
+				var val = a[key];
+				var type = typeof(val);
+				b[key] = type === 'object' ? val ? W.CLONE(val) : val : val;
+			}
+			return b;
 		};
 
 		W.CLONE = function(obj, path) {
