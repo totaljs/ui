@@ -127,6 +127,7 @@
 		imports: {},
 		storage: {},
 		paths: {},
+		normalizer: {},
 		plugins: [],
 		counter: 0,
 		statics: {},
@@ -171,8 +172,10 @@
 		T.emit('service', T.cache.counter);
 
 		// Every 5 minutes
-		if (T.cache.counter % 5 === 0)
+		if (T.cache.counter % 5 === 0) {
 			T.cache.paths = {};
+			T.cache.normalizer = {};
+		}
 
 	}, 60000);
 
@@ -695,7 +698,7 @@
 			// Binders
 			for (let m of T.binders) {
 				if (m.fn && m.scope === scope && (!m.path || m.path.includes(path)))
-					m.fn(m.path.get(scope), path.flags, path.path);
+					m.fn(m.path.get(scope), path.flags, path);
 			}
 		});
 
@@ -910,40 +913,53 @@
 		return parsepath(path).path;
 	}
 
-	function splitpath(path) {
+	function normalize(path) {
 
-		var arr = path.split('.');
-		var builder = [];
-		var all = [];
+		if (!path)
+			return EMPTYARRAY;
 
-		for (var i = 0; i < arr.length; i++) {
-			var p = arr[i];
-			var index = p.indexOf('[');
-			if (index === -1) {
-				if (p.indexOf('-') === -1) {
-					all.push(p);
-					builder.push(all.join('.'));
-				} else {
-					var a = all.splice(all.length - 1);
-					all.push(a + '[\'' + p + '\']');
-					builder.push(all.join('.'));
-				}
-			} else {
-				if (p.indexOf('-') === -1) {
-					all.push(p.substring(0, index));
-					builder.push(all.join('.'));
-					all.splice(all.length - 1);
-					all.push(p);
-					builder.push(all.join('.'));
-				} else {
-					all.push('[\'' + p.substring(0, index) + '\']');
-					builder.push(all.join(''));
-					all.push(p.substring(index));
-					builder.push(all.join(''));
-				}
+		let arr = T.cache.normalizer[path];
+		if (arr)
+			return arr;
+
+		path = path.replace(/"/g, '\'').replace(/\[.*?\]/g, text => text.replace(/\./g, '\0'));
+		arr = path.split('.');
+
+		for (let i = 0; i < arr.length; i++) {
+			let m = arr[i];
+			if (m.charAt(0) !== '[') {
+				let index = m.indexOf('[');
+				arr[i] = index === -1 ? ('[\'' + m + '\']') : ('[\'' + m.substring(0, index) + '\']' + m.substring(index));
 			}
 		}
 
+		arr = arr.join('').replace(/\]\[/g, '].[').split('.');
+		for (let i = 0; i < arr.length; i++)
+			arr[i] = arr[i].replace(/\0/g, '.');
+		T.cache.normalizer[path] = arr;
+		return arr;
+	}
+
+	function splitpath(path) {
+
+		if (!path)
+			return EMPTYARRAY;
+
+		if (path instanceof T.Path)
+			return path.split;
+
+		var key = '_' + path;
+		var builder = T.cache.normalizer[key];
+		if (builder)
+			return builder;
+
+		var arr = normalize(path);
+		builder = [];
+
+		for (let i = 0; i < arr.length; i++)
+			builder.push(arr.slice(0, i + 1).join(''));
+
+		T.cache.normalizer[key] = builder;
 		return builder;
 	}
 
@@ -1418,30 +1434,22 @@
 
 		/*
 			@Path: Path
-			@Method: instance.includes(path); #path {String};
+			@Method: instance.includes(path); #path {String}; #partially {Boolean}; #return {Boolean};
 			The method checks to see if the path is part of the route.
 		*/
-		PROTO.includes = function(path) {
+		PROTO.includes = function(path, partially) {
 
 			var t = this;
+			var arr = splitpath(path);
 
 			if (path instanceof T.Path)
 				path = path.toString();
 
-			if (path.length > t.path.length) {
-				for (var i = 0; i < t.path.length; i++) {
-					var a = path.charAt(i);
-					var b = t.path.charAt(i);
-					if (a !== b)
-						return false;
-				}
-
-				var c = path.charAt(i);
-				return c === '.' || c === '[' || c === '';
-			}
-
-			for (let m of t.split) {
-				if (m === path)
+			for (let i = t.split.length - 1; i > -1; i--) {
+				if (partially) {
+					if (t.split[i].endsWith(arr[arr.length - 1]))
+						return true;
+				} else if (arr.includes(t.split[i]))
 					return true;
 			}
 
@@ -1726,6 +1734,58 @@
 			T.caller = t;
 			path = t.path.assign(path);
 			path.set(t.scope, value);
+			path.notify(t.scope);
+		};
+
+		/*
+			@Path: Plugin
+			@Method: instance.push(path, value)
+			The method pushes a `value` based on a `path` to the defined plugin `scope`.
+		*/
+		PROTO.push = function(path, value) {
+			var t = this;
+			T.caller = t;
+			path = t.path.assign(path);
+			var arr = path.get(t.scope);
+			if (!arr)
+				arr = [];
+			else if (!(arr instanceof Array))
+				arr = [arr];
+			arr.push(value);
+			path.set(t.scope, arr);
+			path.notify(t.scope);
+		};
+
+		/*
+			@Path: Plugin
+			@Method: instance.inc(path, value)
+			The method increments a `value` based on a `path` to the defined plugin `scope`.
+		*/
+		PROTO.inc = function(path, value) {
+			var t = this;
+			T.caller = t;
+			path = t.path.assign(path);
+			var val = path.get(t.scope);
+			if (val == null)
+				val = 0;
+			else if (typeof(val) === 'string')
+				val = val.parseFloat();
+			val += value || 1;
+			path.set(t.scope, val);
+			path.notify(t.scope);
+		};
+
+		/*
+			@Path: Plugin
+			@Method: instance.toggle(path)
+			The method toggles a `value` based on a `path` to the defined plugin `scope`.
+		*/
+		PROTO.toggle = function(path) {
+			var t = this;
+			T.caller = t;
+			path = t.path.assign(path);
+			var val = path.get(t.scope);
+			path.set(t.scope, !val);
 			path.notify(t.scope);
 		};
 
@@ -2977,7 +3037,7 @@
 				t.proxy.callback = null;
 			}
 
-			t.fn(t.path.get(t.scope), t.path, { init: 1 });
+			t.fn(t.path.get(t.scope), { init: 1 }, t.path);
 		};
 
 		PROTO.replaceplugin = function(val) {
@@ -2987,7 +3047,7 @@
 
 		PROTO.exec = function(value, path, flags) {
 			path = parsepath(path);
-			this.fn(value, path, flags || {});
+			this.fn(value, flags || {}, path);
 		};
 
 		PROTO.fn = function(value, flags, path, nodelay) {
@@ -3021,7 +3081,7 @@
 			if (t.track) {
 				let is = false;
 				for (let m of t.track) {
-					if (path.path.includes('.' + m)) {
+					if (path.includes(m, true)) {
 						is = true;
 						break;
 					}
@@ -3041,7 +3101,7 @@
 
 			if (t.delay && !nodelay) {
 				t.timeout && clearTimeout(t.timeout);
-				t.timeout = setTimeout((path, value, flags) => this.fn(value, flags, path, true), t.delay, value, flags, path);
+				t.timeout = setTimeout((value, flags, path) => this.fn(value, flags, path, true), t.delay, value, flags, path);
 				return;
 			}
 
@@ -4561,6 +4621,45 @@
 			return el;
 		};
 
+		W.FIND = function(selector, all) {
+
+			var name = '';
+			var path = '';
+			var id = '';
+			var c = selector.charAt(0);
+
+			if (c === '.')
+				path = selector.substring(1);
+			else if (c === '#')
+				id = selector.substring(1);
+			else
+				name = selector;
+
+			var arr = all ? [] : null;
+
+			for (let m of T.components) {
+				if (m.ready) {
+
+					if (path && (!m.path || !m.path.includes(path, true)))
+						continue;
+
+					if (id && m.id !== id)
+						continue;
+
+					if (name && m.name !== name)
+						continue;
+
+					if (all)
+						arr.push(m);
+					else
+						return m;
+				}
+			}
+
+			if (all)
+				return arr;
+		};
+
 		/*
 			@Path: Globals
 			@Method: SET(path, value); #path {String}; #value {Object};
@@ -4579,15 +4678,32 @@
 			@Method: GET(path); #path {String}; #return {Object};
 			Based on the path, the method returns a value.
 		*/
-		W.GET = function(path) {
+		W.GET = function(path, noflags) {
 			var flags = path.includes(' ');
 			path = parsepath(path);
-			flags && path.notify(T.root);
+			if (!noflags && flags)
+				path.notify(T.root);
 			return path.get(T.root);
 		};
 
 		W.NUL = W.NULL = function(path) {
 			SET(path, null);
+		};
+
+		W.INC = function(path, value) {
+			var val = W.GET(path, true);
+			if (val == null)
+				val = 0;
+			else if (typeof(val) === 'string')
+				val = val.parseFloat();
+			W.SET(path, val + (value || 1));
+		};
+
+		W.TOGGLE = function(path) {
+			var val = W.GET(path, true);
+			if (val == null)
+				val = false;
+			W.SET(path, !val);
 		};
 
 		/*
@@ -5231,11 +5347,13 @@
 			opt.headers = {};
 
 			// Parse headers
-			let resheaders = req.getAllResponseHeaders().split('\n');
-			for (let line of resheaders) {
-				let index = line.indexOf(':');
-				if (index !== -1)
-					opt.headers[line.substring(0, index).toLowerCase()] = line.substring(index + 1).trim();
+			if (req.getAllResponseHeaders) {
+				let resheaders = req.getAllResponseHeaders().split('\n');
+				for (let line of resheaders) {
+					let index = line.indexOf(':');
+					if (index !== -1)
+						opt.headers[line.substring(0, index).toLowerCase()] = line.substring(index + 1).trim();
+				}
 			}
 
 			let type = opt.headers['content-type'];
@@ -5282,8 +5400,15 @@
 			}
 
 			data = { schema: name, data: data ? data : undefined };
-			return W.AJAX('POST ' + DEF.api, data, callback);
+			return W.AJAX('POST ' + DEF.api, data, callback, scope);
 		};
+
+		function req_respond(value) {
+			var opt = this;
+			opt.cancel = true;
+			opt.req = { status: 200, response: value };
+			onresponse(opt);
+		}
 
 		/*
 			@Path: Globals
@@ -5344,6 +5469,7 @@
 			for (let key in DEF.headers)
 				opt.headers[key] = DEF.headers[key];
 
+			opt.respond = req_respond;
 			opt.data = data;
 
 			T.emit('request', opt);
