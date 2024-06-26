@@ -2655,7 +2655,7 @@
 			The method checks if it is needed to add the icon prefix defined in `DEF.iconprefix`.
 		*/
 		PROTO.icon = function(value) {
-			return value ? ((value.includes(' ') ? DEF.iconprefix : '') + value) : '';
+			return value ? ((value.includes(' ') ? '' : DEF.iconprefix) + value) : '';
 		};
 
 		/*
