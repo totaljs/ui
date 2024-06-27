@@ -65,6 +65,7 @@
 	DEF.cdn = '';
 	DEF.tmp = {};
 	DEF.iconprefix = 'ti ti-';
+	DEF.color = '#4285F4';
 	DEF.scrollbaranimate = true;
 	DEF.thousandsseparator = ' ';
 	DEF.decimalseparator = '.';
@@ -1655,9 +1656,17 @@
 				data = null;
 			}
 
+			var index = name.indexOf(' ');
+			var flags = '';
+
+			if (index !== -1) {
+				flags = name.substring(index);
+				name = name.substring(0, index);
+			}
+
 			var t = this;
 			data = { schema: name, data: data ? data : undefined };
-			return t.ajax('POST ' + DEF.api, data, callback);
+			return t.ajax('POST ' + DEF.api + flags, data, callback);
 		};
 
 		PROTO.ajax = function(url, data, callback) {
@@ -2975,12 +2984,12 @@
 							// external selector
 							cmd.template = $(value.substring(1, value.length - 1)).html();
 						} else {
-							let scr = t.element.find('script,template');
+							let scr = el.find('script,template');
 							if (scr.length) {
 								cmd.template = scr.html();
 								scr.remove();
 							} else
-								cmd.template = t.element.html();
+								cmd.template = el.html();
 							if (value)
 								cmd.vdom = value.split('->').trim();
 						}
@@ -3114,7 +3123,7 @@
 
 			for (let m of t.commands) {
 
-				let el = t.element;
+				let el = t.target;
 
 				if (m.selector)
 					el = el.find(m.selector);
@@ -5399,8 +5408,16 @@
 				data = null;
 			}
 
+			var index = name.indexOf(' ');
+			var flags = '';
+
+			if (index !== -1) {
+				flags = name.substring(index);
+				name = name.substring(0, index);
+			}
+
 			data = { schema: name, data: data ? data : undefined };
-			return W.AJAX('POST ' + DEF.api, data, callback, scope);
+			return W.AJAX('POST ' + DEF.api + flags, data, callback, scope);
 		};
 
 		function req_respond(value) {
