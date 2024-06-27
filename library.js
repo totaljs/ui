@@ -129,6 +129,7 @@
 		storage: {},
 		paths: {},
 		normalizer: {},
+		splitter: {},
 		plugins: [],
 		counter: 0,
 		statics: {},
@@ -175,6 +176,7 @@
 		// Every 5 minutes
 		if (T.cache.counter % 5 === 0) {
 			T.cache.paths = {};
+			T.cache.splitter = {};
 			T.cache.normalizer = {};
 		}
 
@@ -949,8 +951,8 @@
 		if (path instanceof T.Path)
 			return path.split;
 
-		var key = '_' + path;
-		var builder = T.cache.normalizer[key];
+		var key = path;
+		var builder = T.cache.splitter[key];
 		if (builder)
 			return builder;
 
@@ -960,7 +962,7 @@
 		for (let i = 0; i < arr.length; i++)
 			builder.push(arr.slice(0, i + 1).join(''));
 
-		T.cache.normalizer[key] = builder;
+		T.cache.splitter[key] = builder;
 		return builder;
 	}
 
@@ -5376,7 +5378,7 @@
 			if (opt.cancel)
 				return;
 
-			if (opt.ERROR) {
+			if (opt.path && opt.path.ERROR) {
 
 				if (opt.iserror && !opt.response) {
 					T.emit('ERROR', opt.status + '');
@@ -5456,7 +5458,7 @@
 
 			if (index !== -1) {
 				opt.url = url.substring(0, index);
-				url = url.substring(index + 1);
+				url = url.substring(index);
 				opt.path = new T.Path(url);
 			} else
 				opt.url = url;
