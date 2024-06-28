@@ -52,10 +52,12 @@
 	W.EMPTYOBJECT = {};
 	Object.freeze(W.EMPTYOBJECT);
 
-	DEF.pathcommon = 'common.';
-	DEF.pathcl = 'DEF.cl.';
-	DEF.pathplugins = 'jComponent.data.';
-	DEF.pathtmp = 'DEF.tmp.';
+	DEF.path = {};
+	DEF.path.common = 'common.';
+	DEF.path.cl = 'DEF.cl.';
+	DEF.path.plugins = 'jComponent.data.';
+	DEF.path.tmp = 'DEF.tmp.';
+	DEF.path.clean = name => DEF.path[name].substring(0, DEF.path[name].length - 1);
 	DEF.headers = { 'X-Requested-With': 'XMLHttpRequest' };
 	DEF.fallback = 'https://cdn.componentator.com/j-{0}.html';
 	DEF.localstorage = 'jc';
@@ -73,6 +75,8 @@
 	DEF.timeformat = 'HH:mm';
 	DEF.dateformatutc = false;
 	DEF.devices = { xs: { max: 768 }, sm: { min: 768, max: 992 }, md: { min: 992, max: 1200 }, lg: { min: 1200 }};
+	DEF.baseurl = ''; // String or Function
+	DEF.root = ''; // String or Function
 	DEF.empty = '---';
 	DEF.env = {};
 	DEF.env.ts = DEF.dateformat + ' - ' + DEF.timeformat;
@@ -391,7 +395,7 @@
 		// @important flag (it waits for a method)
 
 		if (name.charAt(0) === '*')
-			name = DEF.pathcommon.substring(0, DEF.pathcommon.length - 1) + name.substring(1);
+			name = DEF.path.clean('common') + name.substring(1);
 
 		let raw = name;
 		let index = name.indexOf(' ');
@@ -435,7 +439,7 @@
 	T.seex = function(name, a, b, c, d) {
 
 		if (name.charAt(0) === '*')
-			name = DEF.pathcommon.substring(0, DEF.pathcommon.length - 1) + name.substring(1);
+			name = DEF.path.clean('common') + name.substring(1);
 
 		let raw = name;
 		let index = name.indexOf(' ');
@@ -655,12 +659,12 @@
 			for (let m of T.components) {
 				if (!m.internal.blind && m.ready && m.scope === scope) {
 
-					if (!m.path || path.includes(m.path)) {
-						if (path.flags.reset || path.flags.detault) {
+					if (!m.path || m.path.includes(path)) {
+
+						if (path.flags.reset || path.flags.detault)
 							m.reconfigure({ touched: 0, modified: 0 });
-						} else if (path.flags.change || path.flags.touch || path.flags.modify || path.flags.modified) {
+						else if (path.flags.change || path.flags.touch || path.flags.modify || path.flags.modified)
 							m.reconfigure({ touched: 1, modified: 1 });
-						}
 
 						if (onlyflags)
 							m.$validate();
@@ -1191,12 +1195,12 @@
 					t.path = last || '';
 
 				if (t.path === '*')
-					t.path = DEF.pathcommon.substring(0, DEF.pathcommon.length - 1);
+					t.path = DEF.path.clean('common');
 
 				tmp = T.db.plugins[t.path];
 
 				if (t.path.includes(' ') && t.path.includes('?'))
-					t.path = DEF.pathplugins + GUID(10).replace(/^[0-9]/g, 'x');
+					t.path = DEF.path.plugins + GUID(10).replace(/^[0-9]/g, 'x');
 
 				t.ref = tmp;
 				t.instance = new T.Plugin(t);
@@ -1401,16 +1405,16 @@
 			let c = t.path.charAt(0);
 
 			if (c === '%')
-				t.path = DEF.pathtmp + t.path.substring(1);
+				t.path = DEF.path.tmp + t.path.substring(1);
 			else if (c === '#')
-				t.path = DEF.pathcl + t.path.substring(1);
+				t.path = DEF.path.cl + t.path.substring(1);
 			else if (c === '*')
-				t.path = (t.path.charAt(1) === '/' ? DEF.pathcommon.substring(0, DEF.pathcommon.length - 1) : DEF.pathcommon) + t.path.substring(1);
+				t.path = (t.path.charAt(1) === '/' ? DEF.path.clean('common') : DEF.path.common) + t.path.substring(1);
 
 			c = path.charAt(0);
 
 			if (c === '*')
-				path = path.replace(c, DEF.pathcommon.substring(0, DEF.pathcommon.length - 1));
+				path = path.replace(c, DEF.path.clean('common'));
 
 			let index = path.indexOf('|');
 			if (index !== -1)
@@ -1445,17 +1449,17 @@
 			var t = this;
 			var arr = splitpath(path);
 
-			if (path instanceof T.Path)
-				path = path.toString();
-
-			for (let i = t.split.length - 1; i > -1; i--) {
-				if (partially) {
+			if (partially) {
+				for (let i = t.split.length - 1; i > -1; i--) {
 					if (t.split[i].endsWith(arr[arr.length - 1]))
 						return true;
-				} else if (arr.includes(t.split[i]))
-					return true;
+				}
 			}
 
+			if (arr.length >= t.split.length)
+				return t.split[t.split.length - 1] === arr[t.split.length - 1];
+
+			return t.split[arr.length - 1] === arr[arr.length - 1];
 		};
 
 		PROTO.toString = function() {
@@ -1478,7 +1482,7 @@
 
 			switch (c) {
 				case '*':
-					let tmp = DEF.pathcommon;
+					let tmp = DEF.path.common;
 					path = path.substring(1);
 					if (path)
 						tmp += path;
@@ -1487,10 +1491,10 @@
 					return parsepath(tmp);
 				case '#':
 					path = path.substring(1);
-					return parsepath(DEF.pathcl + path);
+					return parsepath(DEF.path.cl + path);
 				case '%':
 					path = path.substring(1);
-					return parsepath(DEF.pathtmp + path);
+					return parsepath(DEF.path.tmp + path);
 			}
 
 			if (c === '@' || c === '<' || c === '>' || c === '(' || c === ')')
@@ -1548,7 +1552,7 @@
 
 			if (t.flags2) {
 				for (let m of t.flags2)
-					T.emit('@flag ' + m);
+					T.emit('@flag ' + m, t.path);
 			}
 
 			if (t.cl)
@@ -3352,6 +3356,28 @@
 			return str.replace(/--\w+--/g, text => args[text.substring(2, text.length - 2).trim()] || text);
 		};
 
+		PROTO.ROOT = function(noBase) {
+			var url = this;
+			var r = DEF.root;
+			var b = DEF.baseurl;
+			var ext = /(https|http|wss|ws|file):\/\/|\/\/[a-z0-9]|[a-z]:/i;
+			var replace = t => t.charAt(0) + '/';
+			var type = 'function';
+			if (r)
+				url = typeof(r) === type ? r(url) : ext.test(url) ? url : (r + url);
+			else if (!noBase && b)
+				url = typeof(b) === type ? b(url) : ext.test(url) ? url : (b + url);
+			return url.replace(/[^:]\/{2,}/, replace);
+		};
+
+		PROTO.flags = function(path) {
+			return this.replace(/(^|\s)@[\w]+/g, function(text) {
+				var flag = '@flag ' + text.trim().substring(1);
+				T.events[flag] && T.emit(flag, path);
+				return '';
+			}).trim();
+		};
+
 		PROTO.padLeft = function(t, e) {
 			var r = this + '';
 			return Array(Math.max(0, t - r.length + 1)).join(e || ' ') + r;
@@ -4824,7 +4850,7 @@
 			}
 
 			if (name === '*')
-				name = DEF.pathcommon.substring(0, DEF.pathcommon.length - 1);
+				name = DEF.path.clean('common');
 
 			T.db.plugins[name] = { count: 0, config: (config || '').parseConfig(), callback: callback, dependencies: dependencies };
 
@@ -6488,6 +6514,7 @@
 
 			T.cache.storage = data || {};
 			T.ready = true;
+			T.loaded = true;
 
 			$W.on('resize', function() {
 				var resize = T.cache.resize;
