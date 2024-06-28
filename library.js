@@ -364,7 +364,19 @@
 			T.watchers.splice(T.watchers.indexOf(m), 1);
 	};
 
+	T.flags = function(flags, callback) {
+		var path = new T.Path(flags);
+		path.exec(callback || NOOP);
+	};
+
 	T.emit = function(name, a, b, c, d) {
+
+		// Flags
+		var index = name.indexOf(' @');
+		if (index !== -1) {
+			T.flags(name.substring(index + 1));
+			name = name.substring(0, index);
+		}
 
 		var arr = T.events[name];
 		if (arr) {
@@ -2696,6 +2708,7 @@
 
 			var t = this;
 			var prev = t.element;
+			var prevdom = t.dom;
 
 			if (remove) {
 				delete t.dom.$uicomponent;
@@ -2712,6 +2725,10 @@
 				t.element.attr('plugin', t.plugin.name);
 				t.dom.$proxyplugin = t.plugin.proxy;
 				t.dom.$uiplugin = t.plugin;
+				if (t.plugin.dom === prevdom) {
+					t.plugin.dom = t.dom;
+					t.plugin.element = t.element;
+				}
 			}
 
 			return t;
@@ -4635,6 +4652,7 @@
 			The method emits a specific event to all plugins and components.
 		*/
 		W.EMIT = T.emit;
+		W.FLAGS = T.flags;
 
 		W.WATCH = T.watch;
 		W.UNWATCH = T.unwatch;
