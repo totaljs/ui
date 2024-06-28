@@ -1604,7 +1604,7 @@
 			Object.defineProperty(t, 'data', ext);
 			Object.defineProperty(t, 'form', {
 				get() {
-					return t.path.get(t.scope, '@reset');
+					return t.get('@reset');
 				}
 			});
 			Object.defineProperty(t, 'modified', {
