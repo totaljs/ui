@@ -673,7 +673,7 @@
 
 					if (!m.path || m.path.includes(path)) {
 
-						if (path.flags.reset || path.flags.detault)
+						if (path.flags.reset || path.flags.default)
 							m.reconfigure({ touched: 0, modified: 0 });
 						else if (path.flags.change || path.flags.touch || path.flags.modify || path.flags.modified)
 							m.reconfigure({ touched: 1, modified: 1 });
