@@ -1265,7 +1265,8 @@
 				t.instance = new T.Binder(t, t.config, t.element);
 			}
 
-			if (t.path.includes('?')) {
+			if (t.path.includes('?') || t.type !== 'plugin') {
+
 				// absolute path
 				let parent = findplugin(t.type === 'plugin' ? t.dom.parentNode : t.dom);
 				if (parent) {
@@ -1273,14 +1274,16 @@
 					let proxy = parent.$proxyplugin;
 					if (proxy && proxy.ready) {
 						t.parent = proxy.element;
-						t.path = t.path.replace(/\?/g, proxy.path);
-						// t.path = preparepath(proxy.plugin, t.path);
+
+						if (t.path.includes('?'))
+							t.path = t.path.replace(/\?/g, proxy.path);
+
 					} else {
 						setTimeout(t.init, 50, t);
 						return;
 					}
 
-				} else {
+				} else if (t.path.includes('?')) {
 					WARN(ERR.format('The element "{0}" does not have defined parent plugin'.format(t.path)), t.element[0]);
 					return;
 				}
@@ -5786,7 +5789,6 @@
 
 					let id = 'import' + HASH(url);
 					response = ADAPT(null, null, response);
-					response = importscripts(importstyles(response, id)).trim();
 
 					if (cachekey)
 						T.cache.imports[cachekey] = response;
@@ -5796,6 +5798,7 @@
 							let html = response;
 							if (m.prepare)
 								html = m.prepare(html);
+							html = importscripts(importstyles(html, id)).trim();
 							html && $(m.target)[path.flags.prepend ? 'prepend' : 'append'](html);
 						}
 					}
