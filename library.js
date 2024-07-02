@@ -52,6 +52,7 @@
 	W.EMPTYOBJECT = {};
 	Object.freeze(W.EMPTYOBJECT);
 
+	DEF.cl = {};
 	DEF.path = {};
 	DEF.path.common = 'common.';
 	DEF.path.cl = 'DEF.cl.';
@@ -657,7 +658,7 @@
 
 	/*
 		@Path: Core
-		@Method: jComponent.notify(scope, path); #scope {Object}; #path {String};
+		@Method: jComponent.notify(scope, path, [onlyflags]); #scope {Object}; #path {String}; #onlyflags {Boolean} optional default "false";
 		The method notifies all watchers based on a `path` ot the defined `scope`.
 	*/
 	T.notify = function(scope, path, onlyflags) {
@@ -2856,7 +2857,7 @@
 		};
 
 		// Internal method
-		PROTO.$remove = function() {
+		PROTO.remove = PROTO.$remove = function() {
 			var t = this;
 
 			if (t.$removed)
@@ -4803,6 +4804,87 @@
 				else
 					path.notify(T.root);
 			});
+		};
+
+		W.CLRELOAD = function(name, callback) {
+			var arr = name.split(',').trim();
+			arr.wait(function(name, next) {
+				var cl = DEF.cl[name];
+				if (cl) {
+					cl.reload = true;
+					W.CL(name, () => next());
+				} else
+					next();
+			}, callback);
+		};
+
+		W.CLINIT = function(name, callback, expire, init) {
+
+			if (typeof(expire) === 'boolean') {
+				init = expire;
+				expire = '';
+			}
+
+			if (typeof(callback) === 'function') {
+				var url = callback;
+				callback = function(next) {
+					var tmp = url.split(' ');
+					tmp[0] = tmp[0].toLowerCase();
+					if (tmp[0].charAt(0) === '!')
+						tmp[0] === tmp[0].substring(1);
+					switch (tmp[0]) {
+						case 'get':
+						case 'post':
+						case 'put':
+						case 'delete':
+						case 'patch':
+							AJAX(url, next);
+							break;
+						default:
+							TAPI(url, next);
+							break;
+					}
+				};
+			}
+
+			DEF.cl[name] = { callback: callback, expire: expire };
+			init && W.CL(name, NOOP);
+		};
+
+		W.CL = function(name, callback) {
+
+			if (!name) {
+				callback && callback();
+				return;
+			}
+
+			name.split(',').trim().wait(function checkcl(key, next) {
+				var item = DEF.cl[key];
+				if (item) {
+					if (!item.reload && DEF.cl[key]) {
+						next();
+					} else {
+						item.callback(function(val, extend) {
+							if (extend === true) {
+								let tmp = GET(DEF.path.clean('cl'));
+								for (let key in val) {
+									tmp[key] = val;
+									T.notify(T.root, DEF.path.cl + key);
+								}
+							} else
+								SET(DEF.path.cl + key, val);
+							item.date = NOW = new Date();
+							item.reload = false;
+							next();
+						});
+					}
+				} else {
+					if (DEF.cl[key])
+						next();
+					else
+						setTimeout(checkcl, 500, key, next);
+				}
+			}, callback);
 		};
 
 		/*
