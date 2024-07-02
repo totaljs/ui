@@ -142,7 +142,8 @@
 		resize: {},
 		blocked: {},
 		wait: {},
-		tmp: {}
+		tmp: {},
+		cl: {}
 	};
 
 	T.db = {
@@ -407,7 +408,24 @@
 
 		// @important flag (it waits for a method)
 
-		if (name.charAt(0) === '*')
+		var c = name.charAt(0);
+
+		if (c === '-') {
+			T.setter(null, name.substring(1), a, b, c, d);
+			return;
+		}
+
+		if (c === '#') {
+			T.emit(name.substring(1), a, b, c, d);
+			return;
+		}
+
+		if (c === '&') {
+			T.cmd(null, name.substring(1), a, b, c, d);
+			return;
+		}
+
+		if (c === '*')
 			name = DEF.path.clean('common') + name.substring(1);
 
 		let raw = name;
@@ -1128,7 +1146,7 @@
 			try {
 				t.ref.callback && t.ref.callback.call(t.instance, t.instance, t.instance.config, cls);
 			} catch (e) {
-				WARN(ERR.format('Unexpected component error "{0}":'.format(t.instance.name)), e);
+				WARN(ERR.format('Unexpected component error "{0}":'.format(t.instance.name)), e, t.element);
 			}
 
 			if (extensions) {
@@ -1193,7 +1211,7 @@
 					for (let proxy of t.pending)
 						proxy.init(proxy);
 					delete t.pending;
-				});
+				}, value => value ? ADAPT(t.config.path, t.config.if, value) : value);
 
 				return;
 			}
@@ -1762,6 +1780,12 @@
 		*/
 		PROTO.set = function(path, value) {
 			var t = this;
+
+			if (value == undefined) {
+				path = '';
+				value = path;
+			}
+
 			T.caller = t;
 			path = t.path.assign(path);
 			path.set(t.scope, value);
@@ -4825,7 +4849,7 @@
 				expire = '';
 			}
 
-			if (typeof(callback) === 'function') {
+			if (typeof(callback) === 'string') {
 				var url = callback;
 				callback = function(next) {
 					var tmp = url.split(' ');
@@ -4847,7 +4871,7 @@
 				};
 			}
 
-			DEF.cl[name] = { callback: callback, expire: expire };
+			T.cache.cl[name] = { callback: callback, expire: expire };
 			init && W.CL(name, NOOP);
 		};
 
@@ -4859,7 +4883,7 @@
 			}
 
 			name.split(',').trim().wait(function checkcl(key, next) {
-				var item = DEF.cl[key];
+				var item = T.cache.cl[key];
 				if (item) {
 					if (!item.reload && DEF.cl[key]) {
 						next();
